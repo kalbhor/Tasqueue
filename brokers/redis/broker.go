@@ -25,14 +25,6 @@ type Broker struct {
 	conn redis.UniversalClient
 }
 
-func DefaultRedis() Options {
-	return Options{
-		Addrs:    []string{"127.0.0.1:6379"},
-		Password: "",
-		DB:       0,
-	}
-}
-
 func New(o Options) *Broker {
 	return &Broker{
 		log: logrus.New(),

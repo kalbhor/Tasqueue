@@ -7,8 +7,8 @@ import (
 	"github.com/google/uuid"
 )
 
-var (
-	defaultQueue           = "tasqueue:tasks"
+const (
+	DefaultQueue           = "tasqueue:tasks"
 	defaultMaxRetry uint32 = 3
 )
 
@@ -55,7 +55,7 @@ type TaskMessage struct {
 // NewTask returns a new unit of task with arbitrary payload. It accepts a list of options.
 func NewTask(handler string, payload []byte, opts ...Opts) (*Task, error) {
 	var (
-		queue           = defaultQueue
+		queue           = DefaultQueue
 		maxRetry uint32 = defaultMaxRetry
 	)
 

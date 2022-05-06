@@ -8,9 +8,6 @@ import (
 	"errors"
 	"sync"
 
-	redis_broker "github.com/kalbhor/tasqueue/brokers/redis"
-
-	redis_results "github.com/kalbhor/tasqueue/results/redis"
 	"github.com/sirupsen/logrus"
 )
 
@@ -50,11 +47,11 @@ type Server struct {
 
 // NewServer() returns a new instance of server with redis broker and result.
 // It also initialises the error and info loggers.
-func NewServer() *Server {
+func NewServer(b Broker, r Results) *Server {
 	return &Server{
 		log:        logrus.New(),
-		broker:     redis_broker.New(redis_broker.DefaultRedis()),
-		results:    redis_results.New(redis_results.DefaultRedis()),
+		broker:     b,
+		results:    r,
 		processors: make(map[string]Handler),
 	}
 }
@@ -123,7 +120,7 @@ func (s *Server) RegisterProcessor(name string, fn Handler) {
 func (s *Server) Start(ctx context.Context, opts ...Opts) {
 	var (
 		concurrency uint32      = defaultConcurrency
-		queue       string      = defaultQueue
+		queue       string      = DefaultQueue
 		work        chan []byte = make(chan []byte)
 	)
 
