@@ -8,7 +8,7 @@ import (
 	"errors"
 	"sync"
 
-	"go.zerodha.tech/commons/go-logger"
+	"github.com/sirupsen/logrus"
 	redis_broker "go.zerodha.tech/kalbhor/kronika/brokers/redis"
 	redis_results "go.zerodha.tech/kalbhor/kronika/results/redis"
 )
@@ -38,8 +38,7 @@ type Opts interface {
 // Server is the main store that holds the broker and the results communication channels.
 // The server also has methods to insert and consume tasks.
 type Server struct {
-	infoLog *logger.Logger
-	errLog  *logger.Logger
+	log     *logrus.Logger
 	broker  Broker
 	results Results
 
@@ -51,8 +50,7 @@ type Server struct {
 // It also initialises the error and info loggers.
 func NewServer() *Server {
 	return &Server{
-		infoLog:    logger.New(logger.Info, "kronika-info"),
-		errLog:     logger.New(logger.Production, "kronika-error"),
+		log:        logrus.New(),
 		broker:     redis_broker.New(redis_broker.DefaultRedis(), nil, nil),
 		results:    redis_results.New(redis_results.DefaultRedis()),
 		processors: make(map[string]Handler),
@@ -62,8 +60,7 @@ func NewServer() *Server {
 // AddTask() accepts a context and a task. It converts the task into a task message
 // which is queued onto the broker.
 func (s *Server) AddTask(ctx context.Context, t *Task) error {
-	s.infoLog.InfoWith("added task..").Any("task", t).Write()
-
+	s.log.Debugf("added task : %v", t)
 	// Task is converted into a TaskMessage, gob encoded and queued onto the broker
 	var (
 		b       bytes.Buffer
@@ -82,7 +79,8 @@ func (s *Server) AddTask(ctx context.Context, t *Task) error {
 // GetTask() accepts a UUID and returns the task message in the results store.
 // This is useful to check the status of a task message.
 func (s *Server) GetTask(ctx context.Context, uuid string) (*TaskMessage, error) {
-	s.infoLog.InfoWith("getting task..").String("uuid", uuid).Write()
+	s.log.Debugf("getting task : %s", uuid)
+
 	b, err := s.results.Get(ctx, uuid)
 	if err != nil {
 		return nil, err
@@ -98,7 +96,7 @@ func (s *Server) GetTask(ctx context.Context, uuid string) (*TaskMessage, error)
 
 // RegisterProcessor() registers a processing method.
 func (s *Server) RegisterProcessor(name string, fn Handler) {
-	s.infoLog.InfoWith("added processor..").String("name", name).Write()
+	s.log.Debugf("added handler: %s", name)
 	s.registerHandler(name, fn)
 }
 
@@ -117,7 +115,7 @@ func (s *Server) Start(ctx context.Context, opts ...Opts) {
 		case customQueueOpt:
 			queue = v.Value().(string)
 		default:
-			s.infoLog.Info("ignoring invalid option")
+			s.log.Errorf("ignoring invalid option: %s", v.Name())
 		}
 	}
 
@@ -132,18 +130,18 @@ func (s *Server) Start(ctx context.Context, opts ...Opts) {
 
 // consume() listens on the queue for task messages and passes the task to processor.
 func (s *Server) consume(ctx context.Context, work chan []byte, queue string) {
-	s.infoLog.Info("starting task consumer..")
+	s.log.Info("starting task consumer..")
 	s.broker.Consume(ctx, work, queue)
 }
 
 // process() listens on the work channel for tasks. On receiving a task it checks the
 // processors map and passes payload to relevant processor.
 func (s *Server) process(ctx context.Context, work chan []byte, wg *sync.WaitGroup) {
-	s.infoLog.Info("starting processor..")
+	s.log.Info("starting processor..")
 	for {
 		select {
 		case <-ctx.Done():
-			s.infoLog.Info("shutting down processor..")
+			s.log.Info("shutting down processor..")
 			wg.Done()
 			return
 		case work := <-work:
@@ -154,12 +152,12 @@ func (s *Server) process(ctx context.Context, work chan []byte, wg *sync.WaitGro
 			decoder := gob.NewDecoder(bytes.NewBuffer(work))
 			err = decoder.Decode(&msg)
 			if err != nil {
-				s.errLog.ErrGeneral("error unmarshalling task", err).Write()
+				s.log.Error("error unmarshalling task", err)
 				break
 			}
 			fn, err := s.getHandler(msg.Task.Handler)
 			if err != nil {
-				s.errLog.ErrGeneral("handler not found.", err).String("task", msg.Task.Handler).Write()
+				s.log.Error("handler not found.", err)
 				break
 			}
 			s.statusProcessing(ctx, &msg)
@@ -191,11 +189,11 @@ func (s *Server) statusStarted(ctx context.Context, t *TaskMessage) {
 	t.Status = statusStarted
 	b, err := json.Marshal(t)
 	if err != nil {
-		s.errLog.ErrGeneral("could not marshal task message", err).Any("task_message", t).Write()
+		s.log.Error("could not marshal task message", err)
 		return
 	}
 	if err := s.results.Set(ctx, t.UUID, b); err != nil {
-		s.errLog.ErrGeneral("could not set task status", err).Any("task", t).Write()
+		s.log.Error("could not set task status", err)
 	}
 }
 
@@ -203,11 +201,11 @@ func (s *Server) statusProcessing(ctx context.Context, t *TaskMessage) {
 	t.Status = statusProcessing
 	b, err := json.Marshal(t)
 	if err != nil {
-		s.errLog.ErrGeneral("could not marshal task message", err).Any("task_message", t).Write()
+		s.log.Error("could not marshal task message", err)
 		return
 	}
 	if err := s.results.Set(ctx, t.UUID, b); err != nil {
-		s.errLog.ErrGeneral("could not set task status", err).Any("task", t).Write()
+		s.log.Error("could not set task status", err)
 	}
 }
 
@@ -215,11 +213,11 @@ func (s *Server) statusDone(ctx context.Context, t *TaskMessage) {
 	t.Status = statusDone
 	b, err := json.Marshal(t)
 	if err != nil {
-		s.errLog.ErrGeneral("could not marshal task message", err).Any("task_message", t).Write()
+		s.log.Error("could not marshal task message", err)
 		return
 	}
 	if err := s.results.Set(ctx, t.UUID, b); err != nil {
-		s.errLog.ErrGeneral("could not set task status", err).Any("task", t).Write()
+		s.log.Error("could not set task status", err)
 	}
 }
 
@@ -227,10 +225,10 @@ func (s *Server) statusFailed(ctx context.Context, t *TaskMessage) {
 	t.Status = statusFailed
 	b, err := json.Marshal(t)
 	if err != nil {
-		s.errLog.ErrGeneral("could not marshal task message", err).Any("task_message", t).Write()
+		s.log.Error("could not marshal task message", err)
 		return
 	}
 	if err := s.results.Set(ctx, t.UUID, b); err != nil {
-		s.errLog.ErrGeneral("could not set task status", err).Any("task", t).Write()
+		s.log.Error("could not set task status", err)
 	}
 }
