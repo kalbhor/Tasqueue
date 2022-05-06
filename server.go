@@ -19,6 +19,7 @@ const (
 	statusProcessing   = "processing"
 	statusFailed       = "failed"
 	statusDone         = "successful"
+	statusRetrying     = "retrying"
 )
 
 var (
@@ -68,12 +69,29 @@ func (s *Server) AddTask(ctx context.Context, t *Task) error {
 		msg     = t.message()
 	)
 	// Set task status in the results backend.
-	s.statusStarted(ctx, msg)
+	s.statusStarted(ctx, &msg)
 	if err := encoder.Encode(msg); err != nil {
 		return err
 	}
 
 	return s.broker.Enqueue(ctx, b.Bytes(), t.Queue)
+}
+
+// retryTask() increments the retried count and re-queues the task message.
+func (s *Server) retryTask(ctx context.Context, msg *TaskMessage) error {
+	s.log.Debugf("retrying task: %v", msg)
+	var (
+		b       bytes.Buffer
+		encoder = gob.NewEncoder(&b)
+	)
+	msg.Retried += 1
+	// Set task status in the results backend.
+	s.statusStarted(ctx, msg)
+	if err := encoder.Encode(msg); err != nil {
+		return err
+	}
+
+	return s.broker.Enqueue(ctx, b.Bytes(), msg.Task.Queue)
 }
 
 // GetTask() accepts a UUID and returns the task message in the results store.
@@ -161,9 +179,20 @@ func (s *Server) process(ctx context.Context, work chan []byte, wg *sync.WaitGro
 				break
 			}
 			s.statusProcessing(ctx, &msg)
-			// TODO: check error and try retrying
-			fn(msg.Task.Payload)
-			s.statusDone(ctx, &msg)
+			err = fn(msg.Task.Payload)
+			if err != nil {
+				msg.setError(err)
+				// Try queueing the task again if an error is returned.
+				if msg.MaxRetry != msg.Retried {
+					s.statusRetrying(ctx, &msg)
+					s.retryTask(ctx, &msg)
+				} else {
+					// If we hit max retries, set the task status as failed.
+					s.statusFailed(ctx, &msg)
+				}
+			} else {
+				s.statusDone(ctx, &msg)
+			}
 		}
 	}
 }
@@ -186,6 +215,7 @@ func (s *Server) getHandler(name string) (Handler, error) {
 }
 
 func (s *Server) statusStarted(ctx context.Context, t *TaskMessage) {
+	t.setProcessedNow()
 	t.Status = statusStarted
 	b, err := json.Marshal(t)
 	if err != nil {
@@ -198,6 +228,7 @@ func (s *Server) statusStarted(ctx context.Context, t *TaskMessage) {
 }
 
 func (s *Server) statusProcessing(ctx context.Context, t *TaskMessage) {
+	t.setProcessedNow()
 	t.Status = statusProcessing
 	b, err := json.Marshal(t)
 	if err != nil {
@@ -210,6 +241,7 @@ func (s *Server) statusProcessing(ctx context.Context, t *TaskMessage) {
 }
 
 func (s *Server) statusDone(ctx context.Context, t *TaskMessage) {
+	t.setProcessedNow()
 	t.Status = statusDone
 	b, err := json.Marshal(t)
 	if err != nil {
@@ -222,7 +254,21 @@ func (s *Server) statusDone(ctx context.Context, t *TaskMessage) {
 }
 
 func (s *Server) statusFailed(ctx context.Context, t *TaskMessage) {
+	t.setProcessedNow()
 	t.Status = statusFailed
+	b, err := json.Marshal(t)
+	if err != nil {
+		s.log.Error("could not marshal task message", err)
+		return
+	}
+	if err := s.results.Set(ctx, t.UUID, b); err != nil {
+		s.log.Error("could not set task status", err)
+	}
+}
+
+func (s *Server) statusRetrying(ctx context.Context, t *TaskMessage) {
+	t.setProcessedNow()
+	t.Status = statusRetrying
 	b, err := json.Marshal(t)
 	if err != nil {
 		s.log.Error("could not marshal task message", err)
