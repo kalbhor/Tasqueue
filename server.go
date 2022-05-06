@@ -8,9 +8,10 @@ import (
 	"errors"
 	"sync"
 
+	redis_broker "github.com/kalbhor/tasqueue/brokers/redis"
+
+	redis_results "github.com/kalbhor/tasqueue/results/redis"
 	"github.com/sirupsen/logrus"
-	redis_broker "go.zerodha.tech/kalbhor/kronika/brokers/redis"
-	redis_results "go.zerodha.tech/kalbhor/kronika/results/redis"
 )
 
 const (
@@ -52,7 +53,7 @@ type Server struct {
 func NewServer() *Server {
 	return &Server{
 		log:        logrus.New(),
-		broker:     redis_broker.New(redis_broker.DefaultRedis(), nil, nil),
+		broker:     redis_broker.New(redis_broker.DefaultRedis()),
 		results:    redis_results.New(redis_results.DefaultRedis()),
 		processors: make(map[string]Handler),
 	}
@@ -154,7 +155,7 @@ func (s *Server) consume(ctx context.Context, work chan []byte, queue string) {
 
 // process() listens on the work channel for tasks. On receiving a task it checks the
 // processors map and passes payload to relevant processor.
-func (s *Server) process(ctx context.Context, work chan []byte, wg *sync.WaitGroup) {
+func (s *Server) process(ctx context.Context, w chan []byte, wg *sync.WaitGroup) {
 	s.log.Info("starting processor..")
 	for {
 		select {
@@ -162,7 +163,7 @@ func (s *Server) process(ctx context.Context, work chan []byte, wg *sync.WaitGro
 			s.log.Info("shutting down processor..")
 			wg.Done()
 			return
-		case work := <-work:
+		case work := <-w:
 			var (
 				msg TaskMessage
 				err error
@@ -192,6 +193,11 @@ func (s *Server) process(ctx context.Context, work chan []byte, wg *sync.WaitGro
 				}
 			} else {
 				s.statusDone(ctx, &msg)
+				if msg.Task.OnSuccess != nil {
+					for _, t := range msg.Task.OnSuccess {
+						s.AddTask(ctx, t)
+					}
+				}
 			}
 		}
 	}

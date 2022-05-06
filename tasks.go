@@ -12,12 +12,30 @@ var (
 	defaultMaxRetry uint32 = 3
 )
 
+// NewChain() accepts a list of Tasks and creates a chain by setting the
+// onSuccess task to a subsequent task hence forming a "chain".
+func NewChain(tasks ...*Task) (*Task, error) {
+	if len(tasks) < 2 {
+		return nil, fmt.Errorf("minimum 2 tasks required to form chain")
+	}
+
+	// Set the on success tasks as the i+1 task,
+	// hence forming a "chain" of tasks.
+	for i := 0; i < len(tasks)-1; i++ {
+		tasks[i].OnSuccess = []*Task{tasks[i+1]}
+	}
+
+	return tasks[0], nil
+}
+
 // Task represents a unit of work pushed by producers.
 // It is the responsibility of the handler to unmarshal the payload and process it in any manner.
 type Task struct {
-	Queue   string
-	Handler string
-	Payload []byte
+	// If task is successful, the OnSuccess tasks are enqueued.
+	OnSuccess []*Task
+	Queue     string
+	Handler   string
+	Payload   []byte
 
 	maxRetry uint32
 }
