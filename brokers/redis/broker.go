@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"go.zerodha.tech/commons/go-logger"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -21,9 +21,8 @@ type Options struct {
 }
 
 type Broker struct {
-	errLogger  *logger.Logger
-	infoLogger *logger.Logger
-	conn       redis.UniversalClient
+	log  *logrus.Logger
+	conn redis.UniversalClient
 }
 
 func DefaultRedis() Options {
@@ -34,16 +33,9 @@ func DefaultRedis() Options {
 	}
 }
 
-func New(o Options, errLogger *logger.Logger, infoLogger *logger.Logger) *Broker {
-	if errLogger == nil {
-		errLogger = logger.New(logger.Production, "kronika-error")
-	}
-	if infoLogger == nil {
-		infoLogger = logger.New(logger.Info, "kronika-info")
-	}
+func New(o Options) *Broker {
 	return &Broker{
-		infoLogger: infoLogger,
-		errLogger:  errLogger,
+		log: logrus.New(),
 		conn: redis.NewClient(
 			&redis.Options{
 				Addr:     o.Addrs[0],
@@ -62,19 +54,19 @@ func (b *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
 	for {
 		select {
 		case <-ctx.Done():
-			b.infoLogger.Info("shutting down consumer..")
+			b.log.Info("shutting down consumer..")
 			return
 		default:
-			b.infoLogger.Info("receiving from consumer..")
+			b.log.Info("receiving from consumer..")
 			res, err := b.conn.BLPop(ctx, pollPeriod, queue).Result()
 			if err != nil {
-				b.errLogger.ErrGeneral("error consuming from redis queue", err).Write()
+				b.log.Error("error consuming from redis queue", err)
 			} else if errors.Is(err, redis.Nil) {
-				b.infoLogger.Info(queue + ": no tasks to consume..")
+				b.log.Info(queue + ": no tasks to consume..")
 			} else {
 				msg, err := blpopResult(res)
 				if err != nil {
-					b.errLogger.ErrGeneral("error parsing response from redis", err).Write()
+					b.log.Error("error parsing response from redis", err)
 					return
 				}
 				work <- []byte(msg)
