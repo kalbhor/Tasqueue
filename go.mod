@@ -1,4 +1,4 @@
-module go.zerodha.tech/kalbhor/kronika
+module github.com/kalbhor/tasqueue
 
 go 1.18
 

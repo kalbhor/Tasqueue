@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"time"
 
-	tasqueue "go.zerodha.tech/kalbhor/kronika"
+	"github.com/kalbhor/tasqueue"
 )
 
 type SumPayload struct {
