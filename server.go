@@ -61,7 +61,7 @@ func NewServer(b Broker, r Results) *Server {
 
 // AddTask() accepts a context and a task. It converts the task into a task message
 // which is queued onto the broker.
-func (s *Server) AddTask(ctx context.Context, t *Task) error {
+func (s *Server) AddTask(ctx context.Context, t *Task) (string, error) {
 	s.log.Debugf("added task : %v", t)
 	// Task is converted into a TaskMessage, gob encoded and queued onto the broker
 	var (
@@ -73,20 +73,20 @@ func (s *Server) AddTask(ctx context.Context, t *Task) error {
 		sTask := newScheduled(ctx, s.log, s.broker, s.results, t)
 		// TODO: maintain a map of scheduled cron tasks
 		if _, err := s.cron.AddJob(t.schedule, sTask); err != nil {
-			return err
+			return "", err
 		}
 	} else {
 		// Set task status in the results backend.
 		s.statusStarted(ctx, &msg)
 		if err := encoder.Encode(msg); err != nil {
-			return err
+			return "", err
 		}
 		if err := s.broker.Enqueue(ctx, b.Bytes(), t.queue); err != nil {
-			return err
+			return "", err
 		}
 	}
 
-	return nil
+	return msg.UUID, nil
 }
 
 // retryTask() increments the retried count and re-queues the task message.

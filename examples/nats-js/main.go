@@ -9,14 +9,14 @@ import (
 	"os/signal"
 
 	"github.com/kalbhor/tasqueue"
-	"github.com/kalbhor/tasqueue/brokers/nats-js"
+	nats_broker "github.com/kalbhor/tasqueue/brokers/nats-js"
 	"github.com/kalbhor/tasqueue/examples/tasks"
-	"github.com/kalbhor/tasqueue/results/redis"
+	nats_result "github.com/kalbhor/tasqueue/results/nats-js"
 )
 
 func main() {
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
-	brkr, err := nats.New(nats.Config{
+	brkr, err := nats_broker.New(nats_broker.Options{
 		URL:         "localhost:4222",
 		EnabledAuth: false,
 		Streams: map[string][]string{
@@ -27,11 +27,15 @@ func main() {
 		log.Fatal(err)
 	}
 
-	srv := tasqueue.NewServer(brkr, redis.New(redis.Options{
-		Addrs:    []string{"127.0.0.1:6379"},
-		Password: "",
-		DB:       0,
-	}))
+	res, err := nats_result.New(nats_result.Options{
+		URL:         "localhost:4222",
+		EnabledAuth: false,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	srv := tasqueue.NewServer(brkr, res)
 
 	srv.RegisterProcessor("add", tasks.SumProcessor)
 

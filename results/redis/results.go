@@ -12,6 +12,7 @@ const (
 )
 
 type Results struct {
+	opt  Options
 	conn redis.UniversalClient
 }
 
@@ -31,6 +32,7 @@ func DefaultRedis() Options {
 
 func New(o Options) *Results {
 	return &Results{
+		opt: o,
 		conn: redis.NewClient(
 			&redis.Options{
 				Addr:     o.Addrs[0],

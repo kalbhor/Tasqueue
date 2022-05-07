@@ -11,12 +11,12 @@ import (
 
 // Broker is a nats-jetstream based broker implementation.
 type Broker struct {
-	cfg  Config
+	opt  Options
 	log  *logrus.Logger
 	conn nats.JetStreamContext
 }
 
-type Config struct {
+type Options struct {
 	URL         string
 	EnabledAuth bool
 	Username    string
@@ -28,7 +28,7 @@ type Config struct {
 }
 
 // New() returns a new instance of nats-jetstream broker.
-func New(cfg Config) (*Broker, error) {
+func New(cfg Options) (*Broker, error) {
 	opt := []nats.Option{}
 
 	if cfg.EnabledAuth {
@@ -59,7 +59,7 @@ func New(cfg Config) (*Broker, error) {
 	cfg.mu.Unlock()
 
 	return &Broker{
-		cfg:  cfg,
+		opt:  cfg,
 		conn: js,
 		log:  logrus.New(),
 	}, nil
@@ -68,9 +68,9 @@ func New(cfg Config) (*Broker, error) {
 // UpdateStream() adds additional subjects to a stream if stream exists.
 // Otherwise it creates a new stream and adds the subjects.
 func (b *Broker) UpdateStream(stream string, subjects []string) error {
-	b.cfg.mu.Lock()
-	subs, ok := b.cfg.Streams[stream]
-	b.cfg.mu.Unlock()
+	b.opt.mu.Lock()
+	subs, ok := b.opt.Streams[stream]
+	b.opt.mu.Unlock()
 
 	if ok {
 		subs = append(subs, subjects...)
