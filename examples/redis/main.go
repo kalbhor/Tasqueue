@@ -28,18 +28,23 @@ func main() {
 
 	srv.RegisterProcessor("add", tasks.SumProcessor)
 
-	var chain []*tasqueue.Task
+	// var chain []*tasqueue.Task
 
-	for i := 0; i < 3; i++ {
-		b, _ := json.Marshal(tasks.SumPayload{Arg1: i, Arg2: 4})
-		task, err := tasqueue.NewTask("add", b)
-		if err != nil {
-			log.Fatal(err)
-		}
-		chain = append(chain, task)
+	// for i := 0; i < 3; i++ {
+	// 	b, _ := json.Marshal(tasks.SumPayload{Arg1: i, Arg2: 4})
+	// 	task, err := tasqueue.NewTask("add", b)
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// 	chain = append(chain, task)
+	// }
+
+	// t, _ := tasqueue.NewChain(chain...)
+	b, _ := json.Marshal(tasks.SumPayload{Arg1: 5, Arg2: 4})
+	t, err := tasqueue.NewTask("add", b, tasqueue.Schedule("* * * * *"))
+	if err != nil {
+		log.Fatal(err)
 	}
-
-	t, _ := tasqueue.NewChain(chain...)
 	srv.AddTask(ctx, t)
 
 	srv.Start(ctx, tasqueue.Concurrency(5))

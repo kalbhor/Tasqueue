@@ -4,6 +4,7 @@ var (
 	concurrencyOpt = "concurrency"
 	customQueueOpt = "custom_queue"
 	customMaxRetry = "custom_max_retry"
+	customSchedule = "custom_schedule"
 )
 
 // ConcurrencyOpt defines an option to set concurrency for workers.
@@ -25,6 +26,16 @@ func Queue(name string) Opts {
 
 func (c CustomQueue) Name() string       { return customQueueOpt }
 func (c CustomQueue) Value() interface{} { return string(c) }
+
+// CustomSchedule defines a custom queue for the task.
+type CustomSchedule string
+
+func Schedule(spec string) Opts {
+	return CustomSchedule(spec)
+}
+
+func (c CustomSchedule) Name() string       { return customSchedule }
+func (c CustomSchedule) Value() interface{} { return string(c) }
 
 // CustomMaxRetry defines a custom value for max retries for a task.
 type CustomMaxRetry uint32

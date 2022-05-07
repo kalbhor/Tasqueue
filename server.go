@@ -8,6 +8,7 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/robfig/cron/v3"
 	"github.com/sirupsen/logrus"
 )
 
@@ -40,6 +41,7 @@ type Server struct {
 	log     *logrus.Logger
 	broker  Broker
 	results Results
+	cron    *cron.Cron
 
 	p          sync.RWMutex
 	processors map[string]Handler
@@ -50,6 +52,7 @@ type Server struct {
 func NewServer(b Broker, r Results) *Server {
 	return &Server{
 		log:        logrus.New(),
+		cron:       cron.New(),
 		broker:     b,
 		results:    r,
 		processors: make(map[string]Handler),
@@ -66,13 +69,24 @@ func (s *Server) AddTask(ctx context.Context, t *Task) error {
 		encoder = gob.NewEncoder(&b)
 		msg     = t.message()
 	)
-	// Set task status in the results backend.
-	s.statusStarted(ctx, &msg)
-	if err := encoder.Encode(msg); err != nil {
-		return err
+	if t.schedule != "" {
+		sTask := newScheduled(ctx, s.log, s.broker, s.results, t)
+		// TODO: maintain a map of scheduled cron tasks
+		if _, err := s.cron.AddJob(t.schedule, sTask); err != nil {
+			return err
+		}
+	} else {
+		// Set task status in the results backend.
+		s.statusStarted(ctx, &msg)
+		if err := encoder.Encode(msg); err != nil {
+			return err
+		}
+		if err := s.broker.Enqueue(ctx, b.Bytes(), t.queue); err != nil {
+			return err
+		}
 	}
 
-	return s.broker.Enqueue(ctx, b.Bytes(), t.Queue)
+	return nil
 }
 
 // retryTask() increments the retried count and re-queues the task message.
@@ -89,7 +103,7 @@ func (s *Server) retryTask(ctx context.Context, msg *TaskMessage) error {
 		return err
 	}
 
-	return s.broker.Enqueue(ctx, b.Bytes(), msg.Task.Queue)
+	return s.broker.Enqueue(ctx, b.Bytes(), msg.Task.queue)
 }
 
 // GetTask() accepts a UUID and returns the task message in the results store.
@@ -135,7 +149,9 @@ func (s *Server) Start(ctx context.Context, opts ...Opts) {
 		}
 	}
 
+	go s.cron.Start()
 	go s.consume(ctx, work, queue)
+
 	var wg sync.WaitGroup
 	for i := 0; uint32(i) < concurrency; i++ {
 		wg.Add(1)
