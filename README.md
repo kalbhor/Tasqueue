@@ -44,7 +44,7 @@ func SumProcessor(b []byte) error {
 }
 
 func main() {
-    // Create a new tasqueue server with redis results & broker.
+	// Create a new tasqueue server with redis results & broker.
 	srv := tasqueue.NewServer(redis_broker.New(redis_broker.Options{
 		Addrs:    []string{"127.0.0.1:6379"},
 		Password: "",
@@ -55,31 +55,36 @@ func main() {
 		DB:       0,
 	}))
 
-    // Register a handler called "add"
+	// Register a handler called "add"
 	srv.RegisterHandler("add", SumProcessor)
 
-    // Encode the payload passed to the handler and create a task.
+	// Encode the payload passed to the handler and create a task.
 	b, _ := json.Marshal(SumPayload{Arg1: 5, Arg2: 4})
 	t, err := tasqueue.NewTask("add", b)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-    ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
+	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 
-    // Place the task
+	// Place the task
 	srv.AddTask(ctx, t)
 
-    // Start the tasqueue workers. (blocking function)
+	// Start the tasqueue workers. (blocking function)
 	srv.Start(ctx)
 
 	fmt.Println("exit..")
 }
 ```
 
-## Options 
+## Features and Options 
 
 ### Task
+
+#### Features
+- Task chains : A new "chain" of tasks can be formed by using `tasqueue.NewChain(tasks ...*Task)`. Each subsequent task will be placed after the successful execution of current task.
+
+#### Options
 - Cron based schedule : `tasqueue.Schedule("* * * * *")`
 - Custom Queue (important to run server on custom queue as well) : `tasqueue.CustomQueue("custom-q")`
 - Custom value for maximum retries : `tasqueue.MaxRetry(5)`
@@ -87,8 +92,9 @@ func main() {
 Options can be passed while creating a new task : `func NewTask(handler string, payload []byte, opts ...Opts)`
 
 ### Server/Worker 
+#### Options
 - Custom Queue (important to set on task as well) : `tasqueue.CustomQueue("custom-q")`
 - Custom concurrency : `tasqueue.Concurrency(5)`
 
-Options can be passed while starting the server workers. 
+Options can be passed while starting the server worker. 
 `func (s *Server) Start(ctx context.Context, opts ...Opts)` 
