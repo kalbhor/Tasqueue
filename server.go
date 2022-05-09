@@ -124,13 +124,13 @@ func (s *Server) GetTask(ctx context.Context, uuid string) (*TaskMessage, error)
 	return &t, nil
 }
 
-// RegisterProcessor() registers a processing method.
-func (s *Server) RegisterProcessor(name string, fn Handler) {
+// RegisterHandler() registers a processing method.
+func (s *Server) RegisterHandler(name string, fn Handler) {
 	s.log.Debugf("added handler: %s", name)
 	s.registerHandler(name, fn)
 }
 
-// Start() starts the task consumer and processor.
+// Start() starts the task consumer and processor. It is a blocking function.
 func (s *Server) Start(ctx context.Context, opts ...Opts) {
 	var (
 		concurrency uint32      = defaultConcurrency

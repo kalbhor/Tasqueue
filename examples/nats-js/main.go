@@ -37,7 +37,7 @@ func main() {
 
 	srv := tasqueue.NewServer(brkr, res)
 
-	srv.RegisterProcessor("add", tasks.SumProcessor)
+	srv.RegisterHandler("add", tasks.SumProcessor)
 
 	var chain []*tasqueue.Task
 

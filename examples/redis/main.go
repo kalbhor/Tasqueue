@@ -9,24 +9,24 @@ import (
 	"os/signal"
 
 	"github.com/kalbhor/tasqueue"
-	rbroker "github.com/kalbhor/tasqueue/brokers/redis"
+	redis_broker "github.com/kalbhor/tasqueue/brokers/redis"
 	"github.com/kalbhor/tasqueue/examples/tasks"
-	rresults "github.com/kalbhor/tasqueue/results/redis"
+	redis_results "github.com/kalbhor/tasqueue/results/redis"
 )
 
 func main() {
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
-	srv := tasqueue.NewServer(rbroker.New(rbroker.Options{
+	srv := tasqueue.NewServer(redis_broker.New(redis_broker.Options{
 		Addrs:    []string{"127.0.0.1:6379"},
 		Password: "",
 		DB:       0,
-	}), rresults.New(rresults.Options{
+	}), redis_results.New(redis_results.Options{
 		Addrs:    []string{"127.0.0.1:6379"},
 		Password: "",
 		DB:       0,
 	}))
 
-	srv.RegisterProcessor("add", tasks.SumProcessor)
+	srv.RegisterHandler("add", tasks.SumProcessor)
 
 	// var chain []*tasqueue.Task
 

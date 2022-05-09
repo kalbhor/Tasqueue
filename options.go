@@ -27,7 +27,7 @@ func Queue(name string) Opts {
 func (c CustomQueue) Name() string       { return customQueueOpt }
 func (c CustomQueue) Value() interface{} { return string(c) }
 
-// CustomSchedule defines a custom queue for the task.
+// CustomSchedule defines a cron schedule for the task.
 type CustomSchedule string
 
 func Schedule(spec string) Opts {
