@@ -14,3 +14,9 @@ type Broker interface {
 	// Consume listens for tasks on the queue and calls processor
 	Consume(ctx context.Context, work chan []byte, queue string)
 }
+
+// Opts is an interface to define arbitratry options.
+type Opts interface {
+	Name() string
+	Value() interface{}
+}

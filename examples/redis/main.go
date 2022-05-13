@@ -16,7 +16,7 @@ import (
 
 func main() {
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
-	srv := tasqueue.NewServer(redis_broker.New(redis_broker.Options{
+	srv, err := tasqueue.NewServer(redis_broker.New(redis_broker.Options{
 		Addrs:    []string{"127.0.0.1:6379"},
 		Password: "",
 		DB:       0,
@@ -24,7 +24,10 @@ func main() {
 		Addrs:    []string{"127.0.0.1:6379"},
 		Password: "",
 		DB:       0,
-	}))
+	}), tasqueue.Concurrency(5))
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	srv.RegisterTask("add", tasks.SumProcessor)
 
@@ -47,7 +50,7 @@ func main() {
 	}
 	srv.Enqueue(ctx, t)
 
-	srv.Start(ctx, tasqueue.Concurrency(5))
+	srv.Start(ctx)
 
 	// Create a task payload.
 	fmt.Println("exit..")

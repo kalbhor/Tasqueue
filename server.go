@@ -6,6 +6,7 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/robfig/cron/v3"
@@ -29,12 +30,6 @@ var (
 // and process it any manner.
 type Handler func([]byte, *JobCtx) error
 
-// Opts is an interface to define arbitratry options.
-type Opts interface {
-	Name() string
-	Value() interface{}
-}
-
 // Server is the main store that holds the broker and the results communication channels.
 // The server also has methods to insert and consume tasks.
 type Server struct {
@@ -43,20 +38,41 @@ type Server struct {
 	results Results
 	cron    *cron.Cron
 
-	p          sync.RWMutex
-	processors map[string]Handler
+	p     sync.RWMutex
+	tasks map[string]Handler
+
+	opts serverOpts
+}
+
+type serverOpts struct {
+	concurrency uint32
+	queue       string
 }
 
 // NewServer() returns a new instance of server with redis broker and result.
 // It also initialises the error and info loggers.
-func NewServer(b Broker, r Results) *Server {
-	return &Server{
-		log:        logrus.New(),
-		cron:       cron.New(),
-		broker:     b,
-		results:    r,
-		processors: make(map[string]Handler),
+func NewServer(b Broker, r Results, opts ...Opts) (*Server, error) {
+	var sOpts = serverOpts{concurrency: defaultConcurrency, queue: DefaultQueue}
+
+	for _, v := range opts {
+		switch v.Name() {
+		case concurrencyOpt:
+			sOpts.concurrency = v.Value().(uint32)
+		case customQueueOpt:
+			sOpts.queue = v.Value().(string)
+		default:
+			return nil, fmt.Errorf("ignoring invalid option: %s", v.Name())
+		}
 	}
+
+	return &Server{
+		log:     logrus.New(),
+		cron:    cron.New(),
+		broker:  b,
+		results: r,
+		tasks:   make(map[string]Handler),
+		opts:    sOpts,
+	}, nil
 }
 
 // Enqueue() accepts a context and a task. It converts the task into a task message
@@ -69,10 +85,10 @@ func (s *Server) Enqueue(ctx context.Context, t *Job) (string, error) {
 		encoder = gob.NewEncoder(&b)
 		msg     = t.message()
 	)
-	if t.schedule != "" {
+	if t.opts.schedule != "" {
 		sTask := newScheduled(ctx, s.log, s.broker, s.results, t)
 		// TODO: maintain a map of scheduled cron tasks
-		if _, err := s.cron.AddJob(t.schedule, sTask); err != nil {
+		if _, err := s.cron.AddJob(t.opts.schedule, sTask); err != nil {
 			return "", err
 		}
 	} else {
@@ -81,7 +97,7 @@ func (s *Server) Enqueue(ctx context.Context, t *Job) (string, error) {
 		if err := encoder.Encode(msg); err != nil {
 			return "", err
 		}
-		if err := s.broker.Enqueue(ctx, b.Bytes(), t.queue); err != nil {
+		if err := s.broker.Enqueue(ctx, b.Bytes(), t.opts.queue); err != nil {
 			return "", err
 		}
 	}
@@ -103,7 +119,7 @@ func (s *Server) retryTask(ctx context.Context, msg *JobMessage) error {
 		return err
 	}
 
-	return s.broker.Enqueue(ctx, b.Bytes(), msg.Job.queue)
+	return s.broker.Enqueue(ctx, b.Bytes(), msg.Job.opts.queue)
 }
 
 // GetTask() accepts a UUID and returns the task message in the results store.
@@ -143,29 +159,14 @@ func (s *Server) RegisterTask(name string, fn Handler) {
 }
 
 // Start() starts the task consumer and processor. It is a blocking function.
-func (s *Server) Start(ctx context.Context, opts ...Opts) {
-	var (
-		concurrency uint32      = defaultConcurrency
-		queue       string      = DefaultQueue
-		work        chan []byte = make(chan []byte)
-	)
-
-	for _, v := range opts {
-		switch v.Name() {
-		case concurrencyOpt:
-			concurrency = v.Value().(uint32)
-		case customQueueOpt:
-			queue = v.Value().(string)
-		default:
-			s.log.Errorf("ignoring invalid option: %s", v.Name())
-		}
-	}
+func (s *Server) Start(ctx context.Context) {
+	work := make(chan []byte)
 
 	go s.cron.Start()
-	go s.consume(ctx, work, queue)
+	go s.consume(ctx, work, s.opts.queue)
 
 	var wg sync.WaitGroup
-	for i := 0; uint32(i) < concurrency; i++ {
+	for i := 0; uint32(i) < s.opts.concurrency; i++ {
 		wg.Add(1)
 		go s.process(ctx, work, &wg)
 	}
@@ -237,13 +238,13 @@ func (s *Server) process(ctx context.Context, w chan []byte, wg *sync.WaitGroup)
 
 func (s *Server) registerHandler(name string, fn Handler) {
 	s.p.Lock()
-	s.processors[name] = fn
+	s.tasks[name] = fn
 	s.p.Unlock()
 }
 
 func (s *Server) getHandler(name string) (Handler, error) {
 	s.p.Lock()
-	fn, ok := s.processors[name]
+	fn, ok := s.tasks[name]
 	s.p.Unlock()
 	if !ok {
 		return nil, errHandlerNotFound

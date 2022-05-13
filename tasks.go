@@ -1,15 +1,10 @@
 package tasqueue
 
 import (
-	"bytes"
-	"context"
-	"encoding/gob"
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -19,13 +14,18 @@ const (
 )
 
 // Job represents a unit of work pushed by producers.
-// It is the responsibility of the handler to unmarshal the payload and process it in any manner.
+// It is the responsibility of the task handler to unmarshal (if required) the payload and process it in any manner.
 type Job struct {
-	// If task is successful, the OnSuccess tasks are enqueued.
+	// If task is successful, the OnSuccess jobs are enqueued.
 	OnSuccess []*Job
 	Handler   string
 	Payload   []byte
 
+	opts jobOpts
+}
+
+// jobOpts holds the various options available to configure a job.
+type jobOpts struct {
 	queue    string
 	maxRetry uint32
 	schedule string
@@ -33,36 +33,33 @@ type Job struct {
 
 // NewJob returns a new unit of task with arbitrary payload. It accepts a list of options.
 func NewJob(handler string, payload []byte, opts ...Opts) (*Job, error) {
-	var (
-		queue           = DefaultQueue
-		maxRetry uint32 = defaultMaxRetry
-		schedule string
-	)
+
+	// Create the job options with default values.
+	var jOpts = jobOpts{queue: DefaultQueue, maxRetry: defaultMaxRetry}
 
 	for _, v := range opts {
 		switch v.Name() {
 		case customQueueOpt:
-			queue = v.Value().(string)
+			jOpts.queue = v.Value().(string)
 		case customMaxRetry:
-			maxRetry = v.Value().(uint32)
+			jOpts.maxRetry = v.Value().(uint32)
 		case customSchedule:
-			schedule = v.Value().(string)
+			jOpts.schedule = v.Value().(string)
 		default:
 			return nil, fmt.Errorf("invalid option %s for task", v.Name())
 		}
 	}
 
 	return &Job{
-		queue:    queue,
-		schedule: schedule,
-		Handler:  handler,
-		Payload:  payload,
-		maxRetry: maxRetry,
+		opts:    jOpts,
+		Handler: handler,
+		Payload: payload,
 	}, nil
 }
 
 // NewChain() accepts a list of Tasks and creates a chain by setting the
-// onSuccess task to a subsequent task hence forming a "chain".
+// onSuccess task of i'th task to (i+1)'th task, hence forming a "chain".
+// It returns the first task (essentially the first node of the linked list), which can be queued normally.
 func NewChain(tasks ...*Job) (*Job, error) {
 	if len(tasks) < 2 {
 		return nil, fmt.Errorf("minimum 2 tasks required to form chain")
@@ -75,59 +72,6 @@ func NewChain(tasks ...*Job) (*Job, error) {
 	}
 
 	return tasks[0], nil
-}
-
-// scheduledJob holds the broker & results interfaces required to enqeueue a task.
-// It has a Run() method that enqeues the task. This method is called by the cron scheduler.
-type scheduledJob struct {
-	log     *logrus.Logger
-	ctx     context.Context
-	broker  Broker
-	results Results
-	task    *Job
-}
-
-// newScheduled returns a scheduledTask used by the cron scheduler.
-func newScheduled(ctx context.Context, log *logrus.Logger, b Broker, r Results, t *Job) *scheduledJob {
-	return &scheduledJob{
-		log:     log,
-		ctx:     ctx,
-		broker:  b,
-		results: r,
-		task:    t,
-	}
-}
-
-// Run() lets scheduledTask implement the cron job interface.
-// It uses the embedded broker and results interfaces to enqueue a task.
-// Functionally, this method is similar to server.AddTask().
-func (s *scheduledJob) Run() {
-	// Set task status in the results backend.
-	var (
-		buff    bytes.Buffer
-		encoder = gob.NewEncoder(&buff)
-		msg     = s.task.message()
-	)
-	msg.setProcessedNow()
-	msg.Status = statusStarted
-
-	b, err := json.Marshal(msg)
-	if err != nil {
-		s.log.Error("could not marshal task message", err)
-		return
-	}
-	if err := s.results.Set(s.ctx, msg.UUID, b); err != nil {
-		s.log.Error("could not set task status", err)
-		return
-	}
-	if err := encoder.Encode(msg); err != nil {
-		s.log.Error("could not encode task message", err)
-		return
-	}
-	if err := s.broker.Enqueue(s.ctx, buff.Bytes(), s.task.queue); err != nil {
-		s.log.Error("could not enqueue task message", err)
-	}
-
 }
 
 // Meta contains fields related to a job. These are updated when a task is consumed.
@@ -146,6 +90,7 @@ type JobCtx struct {
 	Meta  Meta
 }
 
+// Save() sets arbitrary results for a job on the results store.
 func (c *JobCtx) Save(b []byte) error {
 	return c.store.Set(nil, c.Meta.UUID+resultsSuffix, b)
 }
@@ -163,7 +108,7 @@ func (t *Job) message() JobMessage {
 		Meta: Meta{
 			UUID:     uuid.NewString(),
 			Status:   statusStarted,
-			MaxRetry: t.maxRetry,
+			MaxRetry: t.opts.maxRetry,
 		},
 		Job: t,
 	}

@@ -20,7 +20,7 @@ func main() {
 		URL:         "localhost:4222",
 		EnabledAuth: false,
 		Streams: map[string][]string{
-			"default": []string{tasqueue.DefaultQueue},
+			"default": {tasqueue.DefaultQueue},
 		},
 	})
 	if err != nil {
@@ -35,7 +35,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	srv := tasqueue.NewServer(brkr, res)
+	srv, err := tasqueue.NewServer(brkr, res, tasqueue.Concurrency(5))
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	srv.RegisterTask("add", tasks.SumProcessor)
 
@@ -53,7 +56,7 @@ func main() {
 	t, _ := tasqueue.NewChain(chain...)
 	srv.Enqueue(ctx, t)
 
-	srv.Start(ctx, tasqueue.Concurrency(5))
+	srv.Start(ctx)
 
 	// Create a task payload.
 	fmt.Println("exit..")
