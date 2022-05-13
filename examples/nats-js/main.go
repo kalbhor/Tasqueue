@@ -37,13 +37,13 @@ func main() {
 
 	srv := tasqueue.NewServer(brkr, res)
 
-	srv.RegisterHandler("add", tasks.SumProcessor)
+	srv.RegisterTask("add", tasks.SumProcessor)
 
-	var chain []*tasqueue.Task
+	var chain []*tasqueue.Job
 
 	for i := 0; i < 3; i++ {
 		b, _ := json.Marshal(tasks.SumPayload{Arg1: i, Arg2: 4})
-		task, err := tasqueue.NewTask("add", b)
+		task, err := tasqueue.NewJob("add", b)
 		if err != nil {
 			log.Fatal(err)
 		}

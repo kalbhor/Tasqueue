@@ -26,7 +26,7 @@ func main() {
 		DB:       0,
 	}))
 
-	srv.RegisterHandler("add", tasks.SumProcessor)
+	srv.RegisterTask("add", tasks.SumProcessor)
 
 	// var chain []*tasqueue.Task
 
@@ -41,7 +41,7 @@ func main() {
 
 	// t, _ := tasqueue.NewChain(chain...)
 	b, _ := json.Marshal(tasks.SumPayload{Arg1: 5, Arg2: 4})
-	t, err := tasqueue.NewTask("add", b, tasqueue.Schedule("* * * * *"))
+	t, err := tasqueue.NewJob("add", b, tasqueue.Schedule("* * * * *"))
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -27,7 +27,7 @@ var (
 
 // Handler represents a function that can accept arbitrary payload
 // and process it any manner.
-type Handler func([]byte) error
+type Handler func([]byte, *JobCtx) error
 
 // Opts is an interface to define arbitratry options.
 type Opts interface {
@@ -61,7 +61,7 @@ func NewServer(b Broker, r Results) *Server {
 
 // Enqueue() accepts a context and a task. It converts the task into a task message
 // which is queued onto the broker.
-func (s *Server) Enqueue(ctx context.Context, t *Task) (string, error) {
+func (s *Server) Enqueue(ctx context.Context, t *Job) (string, error) {
 	s.log.Debugf("added task : %v", t)
 	// Task is converted into a TaskMessage, gob encoded and queued onto the broker
 	var (
@@ -90,7 +90,7 @@ func (s *Server) Enqueue(ctx context.Context, t *Task) (string, error) {
 }
 
 // retryTask() increments the retried count and re-queues the task message.
-func (s *Server) retryTask(ctx context.Context, msg *TaskMessage) error {
+func (s *Server) retryTask(ctx context.Context, msg *JobMessage) error {
 	s.log.Debugf("retrying task: %v", msg)
 	var (
 		b       bytes.Buffer
@@ -103,12 +103,12 @@ func (s *Server) retryTask(ctx context.Context, msg *TaskMessage) error {
 		return err
 	}
 
-	return s.broker.Enqueue(ctx, b.Bytes(), msg.Task.queue)
+	return s.broker.Enqueue(ctx, b.Bytes(), msg.Job.queue)
 }
 
 // GetTask() accepts a UUID and returns the task message in the results store.
 // This is useful to check the status of a task message.
-func (s *Server) GetTask(ctx context.Context, uuid string) (*TaskMessage, error) {
+func (s *Server) GetTask(ctx context.Context, uuid string) (*JobMessage, error) {
 	s.log.Debugf("getting task : %s", uuid)
 
 	b, err := s.results.Get(ctx, uuid)
@@ -116,12 +116,24 @@ func (s *Server) GetTask(ctx context.Context, uuid string) (*TaskMessage, error)
 		return nil, err
 	}
 
-	var t TaskMessage
+	var t JobMessage
 	if err := json.Unmarshal(b, &t); err != nil {
 		return nil, err
 	}
 
 	return &t, nil
+}
+
+// GetResult() accepts a UUID and returns the result of the job in the results store.
+func (s *Server) GetResult(ctx context.Context, uuid string) ([]byte, error) {
+	s.log.Debugf("getting task : %s", uuid)
+
+	b, err := s.results.Get(ctx, uuid+resultsSuffix)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }
 
 // RegisterTask() registers a processing method.
@@ -178,22 +190,28 @@ func (s *Server) process(ctx context.Context, w chan []byte, wg *sync.WaitGroup)
 			return
 		case work := <-w:
 			var (
-				msg TaskMessage
+				msg JobMessage
 				err error
 			)
+			// Decode the bytes into a task message
 			decoder := gob.NewDecoder(bytes.NewBuffer(work))
 			err = decoder.Decode(&msg)
 			if err != nil {
 				s.log.Error("error unmarshalling task", err)
 				break
 			}
-			fn, err := s.getHandler(msg.Task.Handler)
+			// Create the task context, which will be passed to the handler.
+			taskCtx := &JobCtx{Meta: msg.Meta, store: s.results}
+
+			// Fetch the registered task handler.
+			fn, err := s.getHandler(msg.Job.Handler)
 			if err != nil {
 				s.log.Error("handler not found.", err)
 				break
 			}
+
 			s.statusProcessing(ctx, &msg)
-			err = fn(msg.Task.Payload)
+			err = fn(msg.Job.Payload, taskCtx)
 			if err != nil {
 				msg.setError(err)
 				// Try queueing the task again if an error is returned.
@@ -206,8 +224,9 @@ func (s *Server) process(ctx context.Context, w chan []byte, wg *sync.WaitGroup)
 				}
 			} else {
 				s.statusDone(ctx, &msg)
-				if msg.Task.OnSuccess != nil {
-					for _, t := range msg.Task.OnSuccess {
+				// If the task contains OnSuccess tasks (part of a chain), enqueue them.
+				if msg.Job.OnSuccess != nil {
+					for _, t := range msg.Job.OnSuccess {
 						s.Enqueue(ctx, t)
 					}
 				}
@@ -233,7 +252,7 @@ func (s *Server) getHandler(name string) (Handler, error) {
 	return fn, nil
 }
 
-func (s *Server) statusStarted(ctx context.Context, t *TaskMessage) {
+func (s *Server) statusStarted(ctx context.Context, t *JobMessage) {
 	t.setProcessedNow()
 	t.Status = statusStarted
 	b, err := json.Marshal(t)
@@ -246,7 +265,7 @@ func (s *Server) statusStarted(ctx context.Context, t *TaskMessage) {
 	}
 }
 
-func (s *Server) statusProcessing(ctx context.Context, t *TaskMessage) {
+func (s *Server) statusProcessing(ctx context.Context, t *JobMessage) {
 	t.setProcessedNow()
 	t.Status = statusProcessing
 	b, err := json.Marshal(t)
@@ -259,7 +278,7 @@ func (s *Server) statusProcessing(ctx context.Context, t *TaskMessage) {
 	}
 }
 
-func (s *Server) statusDone(ctx context.Context, t *TaskMessage) {
+func (s *Server) statusDone(ctx context.Context, t *JobMessage) {
 	t.setProcessedNow()
 	t.Status = statusDone
 	b, err := json.Marshal(t)
@@ -272,7 +291,7 @@ func (s *Server) statusDone(ctx context.Context, t *TaskMessage) {
 	}
 }
 
-func (s *Server) statusFailed(ctx context.Context, t *TaskMessage) {
+func (s *Server) statusFailed(ctx context.Context, t *JobMessage) {
 	t.setProcessedNow()
 	t.Status = statusFailed
 	b, err := json.Marshal(t)
@@ -285,7 +304,7 @@ func (s *Server) statusFailed(ctx context.Context, t *TaskMessage) {
 	}
 }
 
-func (s *Server) statusRetrying(ctx context.Context, t *TaskMessage) {
+func (s *Server) statusRetrying(ctx context.Context, t *JobMessage) {
 	t.setProcessedNow()
 	t.Status = statusRetrying
 	b, err := json.Marshal(t)

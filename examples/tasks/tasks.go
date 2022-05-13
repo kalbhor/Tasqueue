@@ -3,6 +3,8 @@ package tasks
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/kalbhor/tasqueue"
 )
 
 type SumPayload struct {
@@ -11,7 +13,7 @@ type SumPayload struct {
 }
 
 // SumProcessor prints the sum of two integer arguements.
-func SumProcessor(b []byte) error {
+func SumProcessor(b []byte, m *tasqueue.JobCtx) error {
 	var pl SumPayload
 	if err := json.Unmarshal(b, &pl); err != nil {
 		return err
