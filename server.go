@@ -59,9 +59,9 @@ func NewServer(b Broker, r Results) *Server {
 	}
 }
 
-// AddTask() accepts a context and a task. It converts the task into a task message
+// Enqueue() accepts a context and a task. It converts the task into a task message
 // which is queued onto the broker.
-func (s *Server) AddTask(ctx context.Context, t *Task) (string, error) {
+func (s *Server) Enqueue(ctx context.Context, t *Task) (string, error) {
 	s.log.Debugf("added task : %v", t)
 	// Task is converted into a TaskMessage, gob encoded and queued onto the broker
 	var (
@@ -124,8 +124,8 @@ func (s *Server) GetTask(ctx context.Context, uuid string) (*TaskMessage, error)
 	return &t, nil
 }
 
-// RegisterHandler() registers a processing method.
-func (s *Server) RegisterHandler(name string, fn Handler) {
+// RegisterTask() registers a processing method.
+func (s *Server) RegisterTask(name string, fn Handler) {
 	s.log.Debugf("added handler: %s", name)
 	s.registerHandler(name, fn)
 }
@@ -208,7 +208,7 @@ func (s *Server) process(ctx context.Context, w chan []byte, wg *sync.WaitGroup)
 				s.statusDone(ctx, &msg)
 				if msg.Task.OnSuccess != nil {
 					for _, t := range msg.Task.OnSuccess {
-						s.AddTask(ctx, t)
+						s.Enqueue(ctx, t)
 					}
 				}
 			}

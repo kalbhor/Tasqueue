@@ -99,16 +99,20 @@ func (s *scheduledTask) Run() {
 
 }
 
-// TaskMessage is a wrapper over Task, used to transport the task over a broker.
-// It contains additional fields such as status and a UUID.
-type TaskMessage struct {
+type Meta struct {
 	UUID        string
 	Status      string
 	MaxRetry    uint32
 	Retried     uint32
 	PrevErr     string
 	ProcessedAt time.Time
-	Task        *Task
+}
+
+// TaskMessage is a wrapper over Task, used to transport the task over a broker.
+// It contains additional fields such as status and a UUID.
+type TaskMessage struct {
+	Meta
+	Task *Task
 }
 
 // NewTask returns a new unit of task with arbitrary payload. It accepts a list of options.

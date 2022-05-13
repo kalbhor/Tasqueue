@@ -51,7 +51,7 @@ func main() {
 	}
 
 	t, _ := tasqueue.NewChain(chain...)
-	srv.AddTask(ctx, t)
+	srv.Enqueue(ctx, t)
 
 	srv.Start(ctx, tasqueue.Concurrency(5))
 

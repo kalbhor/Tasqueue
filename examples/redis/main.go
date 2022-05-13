@@ -45,7 +45,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	srv.AddTask(ctx, t)
+	srv.Enqueue(ctx, t)
 
 	srv.Start(ctx, tasqueue.Concurrency(5))
 
