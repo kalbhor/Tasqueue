@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/kalbhor/tasqueue"
 	redis_broker "github.com/kalbhor/tasqueue/brokers/redis"
@@ -31,25 +32,27 @@ func main() {
 
 	srv.RegisterTask("add", tasks.SumProcessor)
 
-	// var chain []*tasqueue.Task
+	var chain []*tasqueue.Job
 
-	// for i := 0; i < 3; i++ {
-	// 	b, _ := json.Marshal(tasks.SumPayload{Arg1: i, Arg2: 4})
-	// 	task, err := tasqueue.NewTask("add", b)
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// 	chain = append(chain, task)
-	// }
-
-	// t, _ := tasqueue.NewChain(chain...)
-	b, _ := json.Marshal(tasks.SumPayload{Arg1: 5, Arg2: 4})
-	t, err := tasqueue.NewJob("add", b, tasqueue.Schedule("* * * * *"))
-	if err != nil {
-		log.Fatal(err)
+	for i := 0; i < 3; i++ {
+		b, _ := json.Marshal(tasks.SumPayload{Arg1: i, Arg2: 4})
+		task, err := tasqueue.NewJob("add", b)
+		if err != nil {
+			log.Fatal(err)
+		}
+		chain = append(chain, task)
 	}
-	srv.Enqueue(ctx, t)
 
+	t, _ := tasqueue.NewGroup(chain...)
+	x, _ := srv.EnqueueGroup(ctx, t)
+	go func() {
+		for {
+			select {
+			case <-time.Tick(time.Second * 1):
+				fmt.Println(srv.GetGroup(ctx, x))
+			}
+		}
+	}()
 	srv.Start(ctx)
 
 	// Create a task payload.

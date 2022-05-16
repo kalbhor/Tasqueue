@@ -31,6 +31,18 @@ type jobOpts struct {
 	schedule string
 }
 
+// Meta contains fields related to a job. These are updated when a task is consumed.
+type Meta struct {
+	UUID        string
+	Status      string
+	Queue       string
+	Schedule    string
+	MaxRetry    uint32
+	Retried     uint32
+	PrevErr     string
+	ProcessedAt time.Time
+}
+
 // NewJob returns a new unit of task with arbitrary payload. It accepts a list of options.
 func NewJob(handler string, payload []byte, opts ...Opts) (*Job, error) {
 
@@ -57,34 +69,7 @@ func NewJob(handler string, payload []byte, opts ...Opts) (*Job, error) {
 	}, nil
 }
 
-// NewChain() accepts a list of Tasks and creates a chain by setting the
-// onSuccess task of i'th task to (i+1)'th task, hence forming a "chain".
-// It returns the first task (essentially the first node of the linked list), which can be queued normally.
-func NewChain(tasks ...*Job) (*Job, error) {
-	if len(tasks) < 2 {
-		return nil, fmt.Errorf("minimum 2 tasks required to form chain")
-	}
-
-	// Set the on success tasks as the i+1 task,
-	// hence forming a "chain" of tasks.
-	for i := 0; i < len(tasks)-1; i++ {
-		tasks[i].OnSuccess = []*Job{tasks[i+1]}
-	}
-
-	return tasks[0], nil
-}
-
-// Meta contains fields related to a job. These are updated when a task is consumed.
-type Meta struct {
-	UUID        string
-	Status      string
-	MaxRetry    uint32
-	Retried     uint32
-	PrevErr     string
-	ProcessedAt time.Time
-}
-
-// JobCtx is passed onto handler functions.
+// JobCtx is passed onto handler functions. It allows access to a job's meta information to the handler.
 type JobCtx struct {
 	store Results
 	Meta  Meta
@@ -109,6 +94,8 @@ func (t *Job) message() JobMessage {
 			UUID:     uuid.NewString(),
 			Status:   statusStarted,
 			MaxRetry: t.opts.maxRetry,
+			Schedule: t.opts.schedule,
+			Queue:    t.opts.queue,
 		},
 		Job: t,
 	}
@@ -122,4 +109,64 @@ func (t *JobMessage) setError(err error) {
 // setProcessedNow() sets the message's processedAt time as now().
 func (t *JobMessage) setProcessedNow() {
 	t.ProcessedAt = time.Now()
+}
+
+type Group struct {
+	Jobs []*Job
+}
+
+// GroupMeta contains fields related to a group job. These are updated when a task is consumed.
+type GroupMeta struct {
+	UUID   string
+	Status string
+	// JobStatus is a map of status-> []job uuid
+	JobStatus map[string][]string
+}
+
+// GroupMessage is a wrapper over Group, containing meta info such as status, uuid.
+// A GroupMessage is stored in the results store.
+type GroupMessage struct {
+	GroupMeta
+	Group *Group
+}
+
+// message() converts a group into a group message, ready to be enqueued/stored.
+func (t *Group) message() *GroupMessage {
+	return &GroupMessage{
+		GroupMeta: GroupMeta{
+			JobStatus: map[string][]string{statusDone: {}, statusFailed: {}, statusProcessing: {}},
+			UUID:      uuid.NewString(),
+			Status:    statusProcessing,
+		},
+		Group: t,
+	}
+}
+
+// NewGroup() accepts a list of jobs and creates a group.
+func NewGroup(j ...*Job) (*Group, error) {
+	if len(j) < 2 {
+		return nil, fmt.Errorf("minimum 2 tasks required to form group")
+	}
+
+	return &Group{
+		Jobs: j,
+	}, nil
+
+}
+
+// NewChain() accepts a list of Tasks and creates a chain by setting the
+// onSuccess task of i'th task to (i+1)'th task, hence forming a "chain".
+// It returns the first task (essentially the first node of the linked list), which can be queued normally.
+func NewChain(j ...*Job) (*Job, error) {
+	if len(j) < 2 {
+		return nil, fmt.Errorf("minimum 2 tasks required to form chain")
+	}
+
+	// Set the on success tasks as the i+1 task,
+	// hence forming a "chain" of tasks.
+	for i := 0; i < len(j)-1; i++ {
+		j[i].OnSuccess = []*Job{j[i+1]}
+	}
+
+	return j[0], nil
 }
