@@ -12,7 +12,7 @@ type MockPayload struct {
 	ShouldErr bool
 }
 
-func MockHandler(msg []byte, ctx *JobCtx) error {
+func MockHandler(msg []byte, ctx JobCtx) error {
 	var m MockPayload
 	if err := json.Unmarshal(msg, &m); err != nil {
 		return err
@@ -97,14 +97,14 @@ func (r *MockBroker) Enqueue(ctx context.Context, msg []byte, queue string) erro
 	return nil
 }
 
-func makeJob(f bool) *Job {
+func makeJob(f bool) Job {
 	j, _ := json.Marshal(&MockPayload{ShouldErr: f})
 	job, _ := NewJob("mock_handler", j, CustomMaxRetry(0))
 	return job
 }
 
 func makeGroup(fs ...bool) *Group {
-	var jobs []*Job
+	var jobs []Job
 	for _, f := range fs {
 		jobs = append(jobs, makeJob(f))
 	}

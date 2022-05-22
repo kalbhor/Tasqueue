@@ -12,11 +12,11 @@ type scheduledJob struct {
 	log    *logrus.Logger
 	ctx    context.Context
 	broker Broker
-	msg    *JobMessage
+	msg    JobMessage
 }
 
 // newScheduled accepts a broker, a byte message and job options
-func newScheduled(ctx context.Context, log *logrus.Logger, b Broker, msg *JobMessage) *scheduledJob {
+func newScheduled(ctx context.Context, log *logrus.Logger, b Broker, msg JobMessage) *scheduledJob {
 	if log == nil {
 		log = logrus.New()
 	}

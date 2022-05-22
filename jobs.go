@@ -17,7 +17,7 @@ const (
 // It is the responsibility of the task handler to unmarshal (if required) the payload and process it in any manner.
 type Job struct {
 	// If task is successful, the OnSuccess jobs are enqueued.
-	OnSuccess []*Job
+	OnSuccess []Job
 	Handler   string
 	Payload   []byte
 
@@ -44,7 +44,7 @@ type Meta struct {
 }
 
 // NewJob returns a new unit of task with arbitrary payload. It accepts a list of options.
-func NewJob(handler string, payload []byte, opts ...Opts) (*Job, error) {
+func NewJob(handler string, payload []byte, opts ...Opts) (Job, error) {
 
 	// Create the job options with default values.
 	var jOpts = jobOpts{queue: DefaultQueue, maxRetry: defaultMaxRetry}
@@ -58,11 +58,11 @@ func NewJob(handler string, payload []byte, opts ...Opts) (*Job, error) {
 		case customSchedule:
 			jOpts.schedule = v.Value().(string)
 		default:
-			return nil, fmt.Errorf("invalid option %s for task", v.Name())
+			return Job{}, fmt.Errorf("invalid option %s for task", v.Name())
 		}
 	}
 
-	return &Job{
+	return Job{
 		opts:    jOpts,
 		Handler: handler,
 		Payload: payload,
@@ -76,7 +76,7 @@ type JobCtx struct {
 }
 
 // Save() sets arbitrary results for a job on the results store.
-func (c *JobCtx) Save(b []byte) error {
+func (c JobCtx) Save(b []byte) error {
 	return c.store.Set(nil, c.Meta.UUID+resultsSuffix, b)
 }
 
@@ -84,11 +84,11 @@ func (c *JobCtx) Save(b []byte) error {
 // It contains additional fields such as status and a UUID.
 type JobMessage struct {
 	Meta
-	Job *Job
+	Job Job
 }
 
 // message() converts a task into a TaskMessage, ready to be enqueued onto the broker.
-func (t *Job) message() JobMessage {
+func (t Job) message() JobMessage {
 	return JobMessage{
 		Meta: Meta{
 			UUID:     uuid.NewString(),
@@ -102,17 +102,17 @@ func (t *Job) message() JobMessage {
 }
 
 // setError sets the task message's error.
-func (t *JobMessage) setError(err error) {
+func (t JobMessage) setError(err error) {
 	t.PrevErr = err.Error()
 }
 
 // setProcessedNow() sets the message's processedAt time as now().
-func (t *JobMessage) setProcessedNow() {
+func (t JobMessage) setProcessedNow() {
 	t.ProcessedAt = time.Now()
 }
 
 type Group struct {
-	Jobs []*Job
+	Jobs []Job
 }
 
 // GroupMeta contains fields related to a group job. These are updated when a task is consumed.
@@ -143,7 +143,7 @@ func (t *Group) message() *GroupMessage {
 }
 
 // NewGroup() accepts a list of jobs and creates a group.
-func NewGroup(j ...*Job) (*Group, error) {
+func NewGroup(j ...Job) (*Group, error) {
 	if len(j) < 2 {
 		return nil, fmt.Errorf("minimum 2 tasks required to form group")
 	}
@@ -157,15 +157,15 @@ func NewGroup(j ...*Job) (*Group, error) {
 // NewChain() accepts a list of Tasks and creates a chain by setting the
 // onSuccess task of i'th task to (i+1)'th task, hence forming a "chain".
 // It returns the first task (essentially the first node of the linked list), which can be queued normally.
-func NewChain(j ...*Job) (*Job, error) {
+func NewChain(j ...Job) (Job, error) {
 	if len(j) < 2 {
-		return nil, fmt.Errorf("minimum 2 tasks required to form chain")
+		return Job{}, fmt.Errorf("minimum 2 tasks required to form chain")
 	}
 
 	// Set the on success tasks as the i+1 task,
 	// hence forming a "chain" of tasks.
 	for i := 0; i < len(j)-1; i++ {
-		j[i].OnSuccess = []*Job{j[i+1]}
+		j[i].OnSuccess = []Job{j[i+1]}
 	}
 
 	return j[0], nil

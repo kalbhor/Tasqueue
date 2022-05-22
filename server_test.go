@@ -40,7 +40,7 @@ func TestEnqueueGroup(t *testing.T) {
 }
 
 func TestGetGroup(t *testing.T) {
-	jobs := map[string]*Job{
+	jobs := map[string]Job{
 		StatusDone:   makeJob(false),
 		StatusFailed: makeJob(true),
 	}
@@ -86,7 +86,7 @@ func TestGetGroup(t *testing.T) {
 }
 
 func TestExecJob(t *testing.T) {
-	jobs := map[string]*Job{
+	jobs := map[string]Job{
 		StatusDone:   makeJob(false),
 		StatusFailed: makeJob(true),
 	}
