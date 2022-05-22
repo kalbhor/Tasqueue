@@ -309,7 +309,6 @@ func (s *Server) process(ctx context.Context, w chan []byte, wg *sync.WaitGroup)
 			wg.Done()
 			return
 		case work := <-w:
-			s.log.Info("RECEIVE")
 			var (
 				msg JobMessage
 				err error
