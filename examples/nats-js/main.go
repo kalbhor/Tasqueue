@@ -42,7 +42,7 @@ func main() {
 
 	srv.RegisterTask("add", tasks.SumProcessor)
 
-	var chain []tasqueue.Job
+	var chain []*tasqueue.Job
 
 	for i := 0; i < 3; i++ {
 		b, _ := json.Marshal(tasks.SumPayload{Arg1: i, Arg2: 4})

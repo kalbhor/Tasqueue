@@ -35,7 +35,7 @@ const (
 // Handler represents a function that can accept arbitrary payload
 // and process it in any manner. A job ctx is passed, which allows the handler access to job details
 // and lets it save arbitrary results using JobCtx.Save()
-type Handler func([]byte, JobCtx) error
+type Handler func([]byte, *JobCtx) error
 
 // Server is the main store that holds the broker and the results communication channels.
 // It also stores the registered tasks.
@@ -87,32 +87,32 @@ func NewServer(b Broker, r Results, opts ...Opts) (*Server, error) {
 // 1. Converts it into a job message, which assigns a UUID (among other meta info) to the job.
 // 2. Sets the job status as "started" on the results store.
 // 3. Enqueues the job (if the job is scheduled, pushes it onto the scheduler)
-func (s *Server) Enqueue(ctx context.Context, t Job) (string, error) {
+func (s *Server) Enqueue(ctx context.Context, t *Job) (string, error) {
 	var (
 		msg = t.message()
 	)
 
 	// Set job status in the results backend.
-	if err := s.statusStarted(ctx, msg); err != nil {
+	if err := s.statusStarted(ctx, &msg); err != nil {
 		return "", err
 	}
 
 	// If a schedule is set, add a cron job.
 	if t.opts.schedule != "" {
-		if err := s.enqueueScheduled(ctx, msg); err != nil {
+		if err := s.enqueueScheduled(ctx, &msg); err != nil {
 			return "", err
 		}
 		return msg.UUID, nil
 	}
 
-	if err := s.enqueue(ctx, msg); err != nil {
+	if err := s.enqueue(ctx, &msg); err != nil {
 		return "", err
 	}
 
 	return msg.UUID, nil
 }
 
-func (s *Server) enqueueScheduled(ctx context.Context, msg JobMessage) error {
+func (s *Server) enqueueScheduled(ctx context.Context, msg *JobMessage) error {
 	schJob := newScheduled(ctx, s.log, s.broker, msg)
 	// TODO: maintain a map of scheduled cron tasks
 	if _, err := s.cron.AddJob(msg.Schedule, schJob); err != nil {
@@ -122,7 +122,7 @@ func (s *Server) enqueueScheduled(ctx context.Context, msg JobMessage) error {
 	return nil
 }
 
-func (s *Server) enqueue(ctx context.Context, msg JobMessage) error {
+func (s *Server) enqueue(ctx context.Context, msg *JobMessage) error {
 	var (
 		b       bytes.Buffer
 		encoder = gob.NewEncoder(&b)
@@ -140,20 +140,20 @@ func (s *Server) enqueue(ctx context.Context, msg JobMessage) error {
 
 // GetJob() accepts a UUID and returns the task message in the results store.
 // This is useful to check the status of a task message.
-func (s *Server) GetJob(ctx context.Context, uuid string) (JobMessage, error) {
+func (s *Server) GetJob(ctx context.Context, uuid string) (*JobMessage, error) {
 	s.log.Debugf("getting task : %s", uuid)
 
 	b, err := s.results.Get(ctx, uuid)
 	if err != nil {
-		return JobMessage{}, err
+		return nil, err
 	}
 
 	var t JobMessage
 	if err := json.Unmarshal(b, &t); err != nil {
-		return JobMessage{}, err
+		return nil, err
 	}
 
-	return t, nil
+	return &t, nil
 }
 
 // EnqueueGroup() accepts a group and returns the assigned UUID.
@@ -327,22 +327,22 @@ func (s *Server) process(ctx context.Context, w chan []byte, wg *sync.WaitGroup)
 			}
 
 			// Set the job status as being "processed"
-			if err := s.statusProcessing(ctx, msg); err != nil {
+			if err := s.statusProcessing(ctx, &msg); err != nil {
 				s.log.Error(err)
 				break
 			}
 
-			if err := s.execJob(ctx, msg, fn); err != nil {
+			if err := s.execJob(ctx, &msg, fn); err != nil {
 				s.log.Errorf("could not execute job. err : %v", err)
 			}
 		}
 	}
 }
 
-func (s *Server) execJob(ctx context.Context, msg JobMessage, fn Handler) error {
+func (s *Server) execJob(ctx context.Context, msg *JobMessage, fn Handler) error {
 	// Create the task context, which will be passed to the handler.
 	// TODO: maybe use sync.Pool
-	taskCtx := JobCtx{Meta: msg.Meta, store: s.results}
+	taskCtx := &JobCtx{Meta: msg.Meta, store: s.results}
 
 	err := fn(msg.Job.Payload, taskCtx)
 	if err != nil {
@@ -369,7 +369,7 @@ func (s *Server) execJob(ctx context.Context, msg JobMessage, fn Handler) error 
 }
 
 // retryTask() increments the retried count and re-queues the task message.
-func (s *Server) retryTask(ctx context.Context, msg JobMessage) error {
+func (s *Server) retryTask(ctx context.Context, msg *JobMessage) error {
 	var (
 		b       bytes.Buffer
 		encoder = gob.NewEncoder(&b)
@@ -403,42 +403,42 @@ func (s *Server) getHandler(name string) (Handler, error) {
 	return fn, nil
 }
 
-func (s *Server) statusStarted(ctx context.Context, t JobMessage) error {
+func (s *Server) statusStarted(ctx context.Context, t *JobMessage) error {
 	t.setProcessedNow()
 	t.Status = StatusStarted
 
 	return s.setJobMessage(ctx, t)
 }
 
-func (s *Server) statusProcessing(ctx context.Context, t JobMessage) error {
+func (s *Server) statusProcessing(ctx context.Context, t *JobMessage) error {
 	t.setProcessedNow()
 	t.Status = StatusProcessing
 
 	return s.setJobMessage(ctx, t)
 }
 
-func (s *Server) statusDone(ctx context.Context, t JobMessage) error {
+func (s *Server) statusDone(ctx context.Context, t *JobMessage) error {
 	t.setProcessedNow()
 	t.Status = StatusDone
 
 	return s.setJobMessage(ctx, t)
 }
 
-func (s *Server) statusFailed(ctx context.Context, t JobMessage) error {
+func (s *Server) statusFailed(ctx context.Context, t *JobMessage) error {
 	t.setProcessedNow()
 	t.Status = StatusFailed
 
 	return s.setJobMessage(ctx, t)
 }
 
-func (s *Server) statusRetrying(ctx context.Context, t JobMessage) error {
+func (s *Server) statusRetrying(ctx context.Context, t *JobMessage) error {
 	t.setProcessedNow()
 	t.Status = StatusRetrying
 
 	return s.setJobMessage(ctx, t)
 }
 
-func (s *Server) setJobMessage(ctx context.Context, t JobMessage) error {
+func (s *Server) setJobMessage(ctx context.Context, t *JobMessage) error {
 	b, err := json.Marshal(t)
 	if err != nil {
 		return fmt.Errorf("could not set job message in store : %w", err)
