@@ -1,15 +1,14 @@
 package tasqueue
 
 import (
-	"bytes"
 	"context"
-	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"sync"
 
 	"github.com/robfig/cron/v3"
 	"github.com/sirupsen/logrus"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 const (
@@ -123,15 +122,13 @@ func (s *Server) enqueueScheduled(ctx context.Context, msg *JobMessage) error {
 }
 
 func (s *Server) enqueue(ctx context.Context, msg *JobMessage) error {
-	var (
-		b       bytes.Buffer
-		encoder = gob.NewEncoder(&b)
-	)
-	if err := encoder.Encode(msg); err != nil {
+
+	b, err := msgpack.Marshal(msg)
+	if err != nil {
 		return err
 	}
 
-	if err := s.broker.Enqueue(ctx, b.Bytes(), msg.Queue); err != nil {
+	if err := s.broker.Enqueue(ctx, b, msg.Queue); err != nil {
 		return err
 	}
 
@@ -314,8 +311,7 @@ func (s *Server) process(ctx context.Context, w chan []byte, wg *sync.WaitGroup)
 				err error
 			)
 			// Decode the bytes into a job message
-			decoder := gob.NewDecoder(bytes.NewBuffer(work))
-			if err = decoder.Decode(&msg); err != nil {
+			if err = msgpack.Unmarshal(work, &msg); err != nil {
 				s.log.Errorf("error unmarshalling task : %v", err)
 				break
 			}
@@ -370,12 +366,10 @@ func (s *Server) execJob(ctx context.Context, msg *JobMessage, fn Handler) error
 
 // retryTask() increments the retried count and re-queues the task message.
 func (s *Server) retryTask(ctx context.Context, msg *JobMessage) error {
-	var (
-		b       bytes.Buffer
-		encoder = gob.NewEncoder(&b)
-	)
+
 	msg.Retried += 1
-	if err := encoder.Encode(msg); err != nil {
+	b, err := msgpack.Marshal(msg)
+	if err != nil {
 		return err
 	}
 
@@ -383,7 +377,7 @@ func (s *Server) retryTask(ctx context.Context, msg *JobMessage) error {
 		return err
 	}
 
-	return s.broker.Enqueue(ctx, b.Bytes(), msg.Queue)
+	return s.broker.Enqueue(ctx, b, msg.Queue)
 }
 
 func (s *Server) registerHandler(name string, fn Handler) {
