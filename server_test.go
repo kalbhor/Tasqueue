@@ -41,8 +41,8 @@ func TestEnqueueGroup(t *testing.T) {
 
 func TestGetGroup(t *testing.T) {
 	jobs := map[string]*Job{
-		statusDone:   makeJob(false),
-		statusFailed: makeJob(true),
+		StatusDone:   makeJob(false),
+		StatusFailed: makeJob(true),
 	}
 	srv, err := NewServer(NewMockBroker(), NewMockResults())
 	if err != nil {
@@ -73,13 +73,13 @@ func TestGetGroup(t *testing.T) {
 		}
 
 		switch k {
-		case statusDone:
-			if msg.Status != statusDone {
-				t.Fatalf("incorrect job status, expected %s, got %s", statusDone, msg.Status)
+		case StatusDone:
+			if msg.Status != StatusDone {
+				t.Fatalf("incorrect job status, expected %s, got %s", StatusDone, msg.Status)
 			}
-		case statusFailed:
-			if msg.Status != statusFailed {
-				t.Fatalf("incorrect job status, expected %s, got %s", statusFailed, msg.Status)
+		case StatusFailed:
+			if msg.Status != StatusFailed {
+				t.Fatalf("incorrect job status, expected %s, got %s", StatusFailed, msg.Status)
 			}
 		}
 	}
@@ -87,8 +87,8 @@ func TestGetGroup(t *testing.T) {
 
 func TestExecJob(t *testing.T) {
 	jobs := map[string]*Job{
-		statusDone:   makeJob(false),
-		statusFailed: makeJob(true),
+		StatusDone:   makeJob(false),
+		StatusFailed: makeJob(true),
 	}
 	srv, err := NewServer(NewMockBroker(), NewMockResults())
 	if err != nil {
@@ -119,13 +119,13 @@ func TestExecJob(t *testing.T) {
 		}
 
 		switch k {
-		case statusDone:
-			if msg.Status != statusDone {
-				t.Fatalf("incorrect job status, expected %s, got %s", statusDone, msg.Status)
+		case StatusDone:
+			if msg.Status != StatusDone {
+				t.Fatalf("incorrect job status, expected %s, got %s", StatusDone, msg.Status)
 			}
-		case statusFailed:
-			if msg.Status != statusFailed {
-				t.Fatalf("incorrect job status, expected %s, got %s", statusFailed, msg.Status)
+		case StatusFailed:
+			if msg.Status != StatusFailed {
+				t.Fatalf("incorrect job status, expected %s, got %s", StatusFailed, msg.Status)
 			}
 		}
 	}

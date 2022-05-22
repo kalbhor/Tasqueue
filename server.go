@@ -16,20 +16,20 @@ const (
 	defaultConcurrency = 1
 
 	// This is the initial state when a job is pushed onto the broker.
-	statusStarted = "queued"
+	StatusStarted = "queued"
 
 	// This is the state when a worker has recieved a job.
-	statusProcessing = "processing"
+	StatusProcessing = "processing"
 
 	// The state when a job completes, but returns an error (and all retries are over).
-	statusFailed = "failed"
+	StatusFailed = "failed"
 
 	// The state when a job completes without any error.
-	statusDone = "successful"
+	StatusDone = "successful"
 
 	// The state when a job errors out and is queued again to be retried.
 	// This state is analogous to statusStarted.
-	statusRetrying = "retrying"
+	StatusRetrying = "retrying"
 )
 
 // Handler represents a function that can accept arbitrary payload
@@ -169,7 +169,7 @@ func (s *Server) EnqueueGroup(ctx context.Context, t *Group) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("could not enqueue group : %w", err)
 		}
-		msg.JobStatus[statusStarted] = append(msg.JobStatus[statusStarted], uid)
+		msg.JobStatus[StatusStarted] = append(msg.JobStatus[StatusStarted], uid)
 	}
 
 	if err := s.setGroupMessage(ctx, msg); err != nil {
@@ -185,7 +185,7 @@ func (s *Server) GetGroup(ctx context.Context, uuid string) (*GroupMessage, erro
 	}
 	// If the group status is either "done" or "failed".
 	// Do an early return
-	if g.Status == statusDone || g.Status == statusFailed {
+	if g.Status == StatusDone || g.Status == StatusFailed {
 		return g, nil
 	}
 
@@ -196,7 +196,7 @@ func (s *Server) GetGroup(ctx context.Context, uuid string) (*GroupMessage, erro
 	for status, uuids := range g.JobStatus {
 		switch status {
 		// Re-look the jobs where the status is an intermediatery state (processing, retrying, etc).
-		case statusStarted, statusProcessing, statusRetrying:
+		case StatusStarted, StatusProcessing, StatusRetrying:
 			for _, uid := range uuids {
 				j, err := s.GetJob(ctx, uid)
 				if err != nil {
@@ -205,7 +205,7 @@ func (s *Server) GetGroup(ctx context.Context, uuid string) (*GroupMessage, erro
 				jobStatus[j.Status] = append(jobStatus[j.Status], uid)
 			}
 		// Jobs with a final status remain the same and do not require lookup
-		case statusFailed, statusDone:
+		case StatusFailed, StatusDone:
 			jobStatus[status] = uuids
 		}
 	}
@@ -226,12 +226,12 @@ func (g *GroupMessage) updateStatus(jobStatus map[string][]string) {
 	g.JobStatus = jobStatus
 
 	// Update the overall group status based on individual job status'
-	if len(g.JobStatus[statusFailed]) != 0 {
-		g.Status = statusFailed
-	} else if len(g.JobStatus[statusDone]) == len(g.Group.Jobs) {
-		g.Status = statusDone
+	if len(g.JobStatus[StatusFailed]) != 0 {
+		g.Status = StatusFailed
+	} else if len(g.JobStatus[StatusDone]) == len(g.Group.Jobs) {
+		g.Status = StatusDone
 	} else {
-		g.Status = statusProcessing
+		g.Status = StatusProcessing
 	}
 }
 
@@ -405,35 +405,35 @@ func (s *Server) getHandler(name string) (Handler, error) {
 
 func (s *Server) statusStarted(ctx context.Context, t *JobMessage) error {
 	t.setProcessedNow()
-	t.Status = statusStarted
+	t.Status = StatusStarted
 
 	return s.setJobMessage(ctx, t)
 }
 
 func (s *Server) statusProcessing(ctx context.Context, t *JobMessage) error {
 	t.setProcessedNow()
-	t.Status = statusProcessing
+	t.Status = StatusProcessing
 
 	return s.setJobMessage(ctx, t)
 }
 
 func (s *Server) statusDone(ctx context.Context, t *JobMessage) error {
 	t.setProcessedNow()
-	t.Status = statusDone
+	t.Status = StatusDone
 
 	return s.setJobMessage(ctx, t)
 }
 
 func (s *Server) statusFailed(ctx context.Context, t *JobMessage) error {
 	t.setProcessedNow()
-	t.Status = statusFailed
+	t.Status = StatusFailed
 
 	return s.setJobMessage(ctx, t)
 }
 
 func (s *Server) statusRetrying(ctx context.Context, t *JobMessage) error {
 	t.setProcessedNow()
-	t.Status = statusRetrying
+	t.Status = StatusRetrying
 
 	return s.setJobMessage(ctx, t)
 }

@@ -92,7 +92,7 @@ func (t *Job) message() JobMessage {
 	return JobMessage{
 		Meta: Meta{
 			UUID:     uuid.NewString(),
-			Status:   statusStarted,
+			Status:   StatusStarted,
 			MaxRetry: t.opts.maxRetry,
 			Schedule: t.opts.schedule,
 			Queue:    t.opts.queue,
@@ -134,9 +134,9 @@ type GroupMessage struct {
 func (t *Group) message() *GroupMessage {
 	return &GroupMessage{
 		GroupMeta: GroupMeta{
-			JobStatus: map[string][]string{statusDone: {}, statusFailed: {}, statusProcessing: {}},
+			JobStatus: map[string][]string{StatusDone: {}, StatusFailed: {}, StatusProcessing: {}},
 			UUID:      uuid.NewString(),
-			Status:    statusProcessing,
+			Status:    StatusProcessing,
 		},
 		Group: t,
 	}
