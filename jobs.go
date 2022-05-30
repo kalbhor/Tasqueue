@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	resultsSuffix          = ":result"
+	resultsPrefix          = "tasqueue:result:"
 	DefaultQueue           = "tasqueue:tasks"
-	defaultMaxRetry uint32 = 0
+	defaultMaxRetry uint32 = 1
 )
 
 // Job represents a unit of work pushed by producers.
@@ -78,7 +78,7 @@ type JobCtx struct {
 
 // Save() sets arbitrary results for a job on the results store.
 func (c *JobCtx) Save(b []byte) error {
-	return c.store.Set(nil, c.Meta.UUID+resultsSuffix, b)
+	return c.store.Set(nil, resultsPrefix+c.Meta.UUID, b)
 }
 
 // JobMessage is a wrapper over Task, used to transport the task over a broker.

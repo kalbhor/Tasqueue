@@ -295,7 +295,7 @@ func (s *Server) getGroupMessage(ctx context.Context, uuid string) (GroupMessage
 
 // GetResult() accepts a UUID and returns the result of the job in the results store.
 func (s *Server) GetResult(ctx context.Context, uuid string) ([]byte, error) {
-	b, err := s.results.Get(ctx, uuid+resultsSuffix)
+	b, err := s.results.Get(ctx, resultsPrefix+uuid)
 	if err != nil {
 		return nil, err
 	}

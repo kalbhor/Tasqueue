@@ -18,12 +18,15 @@
 	* [Creating a job](#creating-a-job)
 	* [Enqueuing a job](#enqueuing-a-job)
 	* [Getting job message](#getting-a-job-message)
+	* [JobCtx](#jobctx)
 * [Group](#group)
 	* [Creating a group](#creating-a-group)
 	* [Enqueuing a group](#enqueuing-a-group)
 	* [Getting group message](#getting-a-group-message)
 * [Chain](#chain)
 	* [Creating a chain](#creating-a-chain)
+* [Result](#result)
+	* [Get Result](#get-result)
 
 
 
@@ -86,7 +89,19 @@ func main() {
 - `func FailureCallback(f func(JobCtx)) Opts` : Callback function executed when a job fails (all retries complete).
 
 #### Registering tasks
+A task can be registered by supplying a name, handler and options. 
+Jobs can be processed using a task registered by a particular name. 
+A handler is a function with the signature `func([]byte, JobCtx) error`. It is the responsibility of the handler to deal with the `[]byte` payload in whatever manner (decode, if required).
+
 ```go
+package tasks
+
+import (
+	"encoding/json"
+
+	"github.com/kalbhor/tasqueue"
+)
+
 type SumPayload struct {
 	Arg1 int `json:"arg1"`
 	Arg2 int `json:"arg2"`
@@ -96,7 +111,7 @@ type SumResult struct {
 	Result int `json:"result"`
 }
 
-// SumProcessor saves the sum of two integer arguements.
+// SumProcessor prints the sum of two integer arguements.
 func SumProcessor(b []byte, m tasqueue.JobCtx) error {
 	var pl SumPayload
 	if err := json.Unmarshal(b, &pl); err != nil {
@@ -119,23 +134,22 @@ srv.RegisterTask("add", tasks.SumProcessor)
 ```
 
 #### Start server
-Start() starts the job consumer and processor. It is a blocking function. It listens for jobs on the queue and spawns processor go routines.
+`Start()` starts the job consumer and processor. It is a blocking function. It listens for jobs on the queue and spawns processor go routines.
 
 ```go
-srv.Start(context.Background())
+srv.Start(ctx)
 ```
 
 ### Job
 A tasqueue job represents a unit of work pushed onto the queue, that requires processing using a registered Task. It holds a `[]byte` payload, a task name (which will process the payload) and various options.
 
 #### Job Options 
-- `func Queue(string) Opts` : Name of the queue onto which the job is pushed. (default: `tasqueue:tasks`)
-* Note : To consume jobs pushed on a custom queue, the server must be initialised with the same queue option.
+- `func Queue(string) Opts` : Name of the queue onto which the job is pushed. (default: `tasqueue:tasks`). Note : To consume jobs pushed on a custom queue, the server must be initialised with the same queue.
 - `func Schedule(string) Opts`: Cron schedule for the job
 - `func MaxRetry(uint32) Opts`: Number of times the job will be retried, if failed. (default: `1`)
 
 #### Creating a job
-`NewJob` returns a job with arbitrary payload. It accepts the name of the task, the payload and a list of options.
+`NewJob` returns a job with the supplied payload. It accepts the name of the task, the payload and a list of options.
 
 ```go
 b, _ := json.Marshal(tasks.SumPayload{Arg1: 5, Arg2: 4})
@@ -179,6 +193,10 @@ type Meta struct {
 }
 ```
 
+#### JobCtx
+`JobCtx` is passed to handler functions and callbacks. It can be used to view the job's meta information (`JobCtx` embeds `Meta`) and also to save arbitrary results for a job using `func (c *JobCtx) Save(b []byte) error`
+
+
 ### Group
 A tasqueue group holds multiple jobs and pushes them all simultaneously onto the queue, the Group is considered successful only if all the jobs finish successfully.
 
@@ -217,7 +235,7 @@ if err != nil {
 To query the details of a group that was enqueued, we can use `srv.GetGroup`. It returns a `GroupMessage` which contains details related to a group. 
 
 ```go
-groupUUID, err := srv.EnqueueGroup(ctx, grp)
+groupMsg, err := srv.GetGroup(ctx, groupUUID)
 if err != nil {
 	log.Fatal(err)
 }
@@ -257,8 +275,19 @@ if err != nil {
 }
 ```
 
+### Result
+A result is arbitrary `[]byte` data saved by a handler or callback via `JobCtx.Save()`. 
+
+#### Get Result 
+```go
+b, err := srv.GetResult(ctx, jobUUID)
+if err != nil {
+	log.Fatal(err)
+}
+```
+
 ## Credits 
-- [@knadh](github.com/knadh) for the logo, code review & suggestions - callbacks, `JobCtx`
+- [@knadh](github.com/knadh) for the logo & feature suggestions
 
 ## License 
 BSD-2-Clause-FreeBSD
