@@ -1,10 +1,11 @@
 <a href="https://zerodha.tech"><img src="https://zerodha.tech/static/images/github-badge.svg" align="right" /></a>
 
+![taskqueue](https://user-images.githubusercontent.com/14031096/170992942-3b62e055-6d9e-4c08-a277-ed6d6e9a4c2a.png)
 
+[![GoDoc](https://godoc.org/github.com/kalbhor/tasqueue?status.svg)](https://godoc.org/github.com/kalbhor/tasqueue) 
 
 **Tasqueue** is a simple, lightweight distributed job/worker implementation in Go
 
----
 * [Concepts](#concepts)
 * [Server](#server)
 	* [Options](#server-options)
@@ -32,16 +33,16 @@
 - `tasqueue.Results` is a generic interface to store the status and results of jobs. Currently supported result stores are
 [redis](./results/redis/) and [nats-jetstream](./results/nats-js/).
 - `tasqueue.Task` is a pre-registered job handler. It stores a handler functions which is called to process a job. It also stores callbacks (if set through options), executed during different states of a job.
-- `tasqueue.Job` represents a unit of work pushed to a queue for consumption. It holds data such as a :
--- `[]byte` payload (encoded in any manner, if required)
--- task name used to identify the pre-registed task which will processes the job.
+- `tasqueue.Job` represents a unit of work pushed to a queue for consumption. It holds:
+	- `[]byte` payload (encoded in any manner, if required)
+	- task name used to identify the pre-registed task which will processes the job.
 
 ### Server
 A tasqueue server is the main store that holds the broker and the results interfaces. It also acts as a hub to register tasks.
 
 #### Server Options
-- `func Queue(string) Opts` : Name of the queue to enqueue/consume jobs from. (Default: `tasqueue:tasks`)
-- `func Concurrency(uint32) Opts` : The number of go routines spawned to process jobs on the registered queue. (Default : `1`)
+- `func Queue(string) Opts` : Name of the queue to enqueue/consume jobs from. (default: `tasqueue:tasks`)
+- `func Concurrency(uint32) Opts` : The number of go routines spawned to process jobs on the registered queue. (default : `1`)
 
 #### Usage
 ```go
@@ -114,7 +115,7 @@ func SumProcessor(b []byte, m tasqueue.JobCtx) error {
 ```
 
 ```go
-	srv.RegisterTask("add", tasks.SumProcessor)
+srv.RegisterTask("add", tasks.SumProcessor)
 ```
 
 #### Start server
@@ -257,7 +258,7 @@ if err != nil {
 ```
 
 ## Credits 
-- @knadh for the logo, code review & suggestions - callbacks, `JobCtx`
+- [@knadh](github.com/knadh) for the logo, code review & suggestions - callbacks, `JobCtx`
 
 ## License 
 BSD-2-Clause-FreeBSD
