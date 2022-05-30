@@ -67,9 +67,9 @@ func (c CustomMaxRetry) Value() interface{} {
 	return uint32(c)
 }
 
-type SuccessCB func(*JobCtx)
+type SuccessCB func(JobCtx)
 
-func SuccessCallback(f func(*JobCtx)) Opts {
+func SuccessCallback(f func(JobCtx)) Opts {
 	return SuccessCB(f)
 }
 
@@ -80,9 +80,9 @@ func (c SuccessCB) Value() interface{} {
 	return c
 }
 
-type ProcessingCB func(*JobCtx)
+type ProcessingCB func(JobCtx)
 
-func ProcessingCallback(f func(*JobCtx)) Opts {
+func ProcessingCallback(f func(JobCtx)) Opts {
 	return ProcessingCB(f)
 }
 
@@ -93,9 +93,9 @@ func (c ProcessingCB) Value() interface{} {
 	return c
 }
 
-type RetryingCB func(*JobCtx)
+type RetryingCB func(JobCtx)
 
-func RetryingCallback(f func(*JobCtx)) Opts {
+func RetryingCallback(f func(JobCtx)) Opts {
 	return RetryingCB(f)
 }
 
@@ -106,9 +106,9 @@ func (c RetryingCB) Value() interface{} {
 	return c
 }
 
-type FailedCB func(*JobCtx)
+type FailedCB func(JobCtx)
 
-func FailedCallback(f func(*JobCtx)) Opts {
+func FailedCallback(f func(JobCtx)) Opts {
 	return FailedCB(f)
 }
 

@@ -15,7 +15,7 @@ import (
 	redis_results "github.com/kalbhor/tasqueue/results/redis"
 )
 
-func successCB(j *tasqueue.JobCtx) {
+func successCB(j tasqueue.JobCtx) {
 	log.Println("SUCCESS")
 }
 
@@ -36,7 +36,7 @@ func main() {
 
 	srv.RegisterTask("add", tasks.SumProcessor, tasqueue.SuccessCallback(successCB))
 
-	var chain []*tasqueue.Job
+	var chain []tasqueue.Job
 
 	for i := 0; i < 3; i++ {
 		b, _ := json.Marshal(tasks.SumPayload{Arg1: i, Arg2: 4})

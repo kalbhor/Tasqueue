@@ -4,16 +4,29 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sync"
-	"time"
+	"testing"
 )
+
+const (
+	taskName = "mock_handler"
+)
+
+func newServer(t *testing.T) *Server {
+	srv, err := NewServer(NewMockBroker(), NewMockResults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.RegisterTask(taskName, MockHandler)
+
+	return srv
+}
 
 type MockPayload struct {
 	ShouldErr bool
 }
 
-func MockHandler(msg []byte, ctx *JobCtx) error {
+func MockHandler(msg []byte, ctx JobCtx) error {
 	var m MockPayload
 	if err := json.Unmarshal(msg, &m); err != nil {
 		return err
@@ -73,7 +86,7 @@ func (r *MockBroker) Consume(ctx context.Context, work chan []byte, queue string
 		case <-ctx.Done():
 			fmt.Println("stopping consumer")
 			return
-		case <-time.Tick(time.Second * 3):
+		default:
 			r.mu.Lock()
 			q := r.queues[queue]
 			r.mu.Unlock()
@@ -98,22 +111,29 @@ func (r *MockBroker) Enqueue(ctx context.Context, msg []byte, queue string) erro
 	return nil
 }
 
-func successCB(j *JobCtx) {
-	log.Println("success callback..")
-}
+func makeJob(t *testing.T, f bool) Job {
+	j, err := json.Marshal(MockPayload{ShouldErr: f})
+	if err != nil {
+		t.Fatal(err)
+	}
 
-func makeJob(f bool) *Job {
-	j, _ := json.Marshal(&MockPayload{ShouldErr: f})
-	job, _ := NewJob("mock_handler", j, CustomMaxRetry(0), SuccessCallback(successCB))
+	job, err := NewJob(taskName, j)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	return job
 }
 
-func makeGroup(fs ...bool) *Group {
-	var jobs []*Job
+func makeGroup(t *testing.T, fs ...bool) Group {
+	var jobs []Job
 	for _, f := range fs {
-		jobs = append(jobs, makeJob(f))
+		jobs = append(jobs, makeJob(t, f))
 	}
-	grp, _ := NewGroup(jobs...)
+	grp, err := NewGroup(jobs...)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	return grp
 }
