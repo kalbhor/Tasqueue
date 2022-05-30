@@ -31,12 +31,47 @@ const (
 	StatusRetrying = "retrying"
 )
 
-// Handler represents a function that can accept arbitrary payload
+// handler represents a function that can accept arbitrary payload
 // and process it in any manner. A job ctx is passed, which allows the handler access to job details
 // and lets it save arbitrary results using JobCtx.Save()
-type Handler func([]byte, *JobCtx) error
+type handler func([]byte, *JobCtx) error
 
-// Server is the main store that holds the broker and the results communication channels.
+// Task is a pre-registered job handler. It stores the callbacks (set through options), which are
+// called during different states of a job.
+type Task struct {
+	name    string
+	handler handler
+
+	successCB    func(*JobCtx)
+	processingCB func(*JobCtx)
+	retryingCB   func(*JobCtx)
+	failedCB     func(*JobCtx)
+}
+
+// RegisterTask maps a new task against the registered tasks map on the server.
+// It accepts different options for the task (to set callbacks).
+func (s *Server) RegisterTask(name string, fn handler, opts ...Opts) {
+	s.log.Infof("added handler: %s", name)
+
+	var t = Task{name: name, handler: fn}
+
+	for _, v := range opts {
+		switch v.Name() {
+		case successCallback:
+			t.successCB = v.Value().(SuccessCB)
+		case failedCallback:
+			t.failedCB = v.Value().(FailedCB)
+		case processingCallback:
+			t.processingCB = v.Value().(ProcessingCB)
+		case retryingCallback:
+			t.retryingCB = v.Value().(RetryingCB)
+		}
+	}
+
+	s.registerHandler(name, t)
+}
+
+// Server is the main store that holds the broker and the results communication interfaces.
 // It also stores the registered tasks.
 type Server struct {
 	log     *logrus.Logger
@@ -45,7 +80,7 @@ type Server struct {
 	cron    *cron.Cron
 
 	p     sync.RWMutex
-	tasks map[string]Handler
+	tasks map[string]Task
 
 	opts serverOpts
 }
@@ -76,7 +111,7 @@ func NewServer(b Broker, r Results, opts ...Opts) (*Server, error) {
 		cron:    cron.New(),
 		broker:  b,
 		results: r,
-		tasks:   make(map[string]Handler),
+		tasks:   make(map[string]Task),
 		opts:    sOpts,
 	}, nil
 }
@@ -122,7 +157,6 @@ func (s *Server) enqueueScheduled(ctx context.Context, msg *JobMessage) error {
 }
 
 func (s *Server) enqueue(ctx context.Context, msg *JobMessage) error {
-
 	b, err := msgpack.Marshal(msg)
 	if err != nil {
 		return err
@@ -135,10 +169,10 @@ func (s *Server) enqueue(ctx context.Context, msg *JobMessage) error {
 	return nil
 }
 
-// GetJob() accepts a UUID and returns the task message in the results store.
-// This is useful to check the status of a task message.
+// GetJob() accepts a UUID and returns the job message in the results store.
+// This is useful to check the status of a job message.
 func (s *Server) GetJob(ctx context.Context, uuid string) (*JobMessage, error) {
-	s.log.Debugf("getting task : %s", uuid)
+	s.log.Infof("getting job : %s", uuid)
 
 	b, err := s.results.Get(ctx, uuid)
 	if err != nil {
@@ -268,12 +302,6 @@ func (s *Server) GetResult(ctx context.Context, uuid string) ([]byte, error) {
 	return b, nil
 }
 
-// RegisterTask() registers a processing method.
-func (s *Server) RegisterTask(name string, fn Handler) {
-	s.log.Infof("added handler: %s", name)
-	s.registerHandler(name, fn)
-}
-
 // Start() starts the task consumer and processor. It is a blocking function.
 func (s *Server) Start(ctx context.Context) {
 	work := make(chan []byte)
@@ -316,7 +344,7 @@ func (s *Server) process(ctx context.Context, w chan []byte, wg *sync.WaitGroup)
 				break
 			}
 			// Fetch the registered task handler.
-			fn, err := s.getHandler(msg.Job.Handler)
+			task, err := s.getHandler(msg.Job.Handler)
 			if err != nil {
 				s.log.Errorf("handler not found : %v", err)
 				break
@@ -328,28 +356,43 @@ func (s *Server) process(ctx context.Context, w chan []byte, wg *sync.WaitGroup)
 				break
 			}
 
-			if err := s.execJob(ctx, &msg, fn); err != nil {
+			if err := s.execJob(ctx, &msg, task); err != nil {
 				s.log.Errorf("could not execute job. err : %v", err)
 			}
 		}
 	}
 }
 
-func (s *Server) execJob(ctx context.Context, msg *JobMessage, fn Handler) error {
+func (s *Server) execJob(ctx context.Context, msg *JobMessage, task Task) error {
 	// Create the task context, which will be passed to the handler.
 	// TODO: maybe use sync.Pool
 	taskCtx := &JobCtx{Meta: msg.Meta, store: s.results}
 
-	err := fn(msg.Job.Payload, taskCtx)
+	if task.processingCB != nil {
+		task.processingCB(taskCtx)
+	}
+
+	err := task.handler(msg.Job.Payload, taskCtx)
 	if err != nil {
 		// Set the job's error
 		msg.setError(err)
 		// Try queueing the job again.
 		if msg.MaxRetry != msg.Retried {
+			if task.retryingCB != nil {
+				task.retryingCB(taskCtx)
+			}
 			return s.retryTask(ctx, msg)
+		} else {
+			if task.failedCB != nil {
+				task.failedCB(taskCtx)
+			}
+			// If we hit max retries, set the task status as failed.
+			return s.statusFailed(ctx, msg)
 		}
-		// If we hit max retries, set the task status as failed.
-		return s.statusFailed(ctx, msg)
+	}
+
+	if task.successCB != nil {
+		task.successCB(taskCtx)
 	}
 
 	// If the task contains OnSuccess tasks (part of a chain), enqueue them.
@@ -380,18 +423,18 @@ func (s *Server) retryTask(ctx context.Context, msg *JobMessage) error {
 	return s.broker.Enqueue(ctx, b, msg.Queue)
 }
 
-func (s *Server) registerHandler(name string, fn Handler) {
+func (s *Server) registerHandler(name string, t Task) {
 	s.p.Lock()
-	s.tasks[name] = fn
+	s.tasks[name] = t
 	s.p.Unlock()
 }
 
-func (s *Server) getHandler(name string) (Handler, error) {
+func (s *Server) getHandler(name string) (Task, error) {
 	s.p.Lock()
 	fn, ok := s.tasks[name]
 	s.p.Unlock()
 	if !ok {
-		return nil, fmt.Errorf("handler %v not found", name)
+		return Task{}, fmt.Errorf("handler %v not found", name)
 	}
 
 	return fn, nil

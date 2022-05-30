@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 )
@@ -97,9 +98,13 @@ func (r *MockBroker) Enqueue(ctx context.Context, msg []byte, queue string) erro
 	return nil
 }
 
+func successCB(j *JobCtx) {
+	log.Println("success callback..")
+}
+
 func makeJob(f bool) *Job {
 	j, _ := json.Marshal(&MockPayload{ShouldErr: f})
-	job, _ := NewJob("mock_handler", j, CustomMaxRetry(0))
+	job, _ := NewJob("mock_handler", j, CustomMaxRetry(0), SuccessCallback(successCB))
 	return job
 }
 
