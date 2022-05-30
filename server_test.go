@@ -90,6 +90,7 @@ func TestGetGroup(t *testing.T) {
 		}
 
 		if msg.Status != status {
+			t.Logf("group message : %v", msg)
 			t.Fatalf("incorrect job status, expected %s, got %s", status, msg.Status)
 		}
 	}
