@@ -18,7 +18,7 @@ const (
 type Job struct {
 	// If task is successful, the OnSuccess jobs are enqueued.
 	OnSuccess []Job
-	Handler   string
+	Task      string
 	Payload   []byte
 
 	opts jobOpts
@@ -43,7 +43,8 @@ type Meta struct {
 	ProcessedAt time.Time
 }
 
-// NewJob returns a new unit of task with arbitrary payload. It accepts a list of options.
+// NewJob returns a job with arbitrary payload.
+// It accepts the name of the task, the payload and a list of options.
 func NewJob(handler string, payload []byte, opts ...Opts) (Job, error) {
 
 	// Create the job options with default values.
@@ -64,7 +65,7 @@ func NewJob(handler string, payload []byte, opts ...Opts) (Job, error) {
 
 	return Job{
 		opts:    jOpts,
-		Handler: handler,
+		Task:    handler,
 		Payload: payload,
 	}, nil
 }

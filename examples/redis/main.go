@@ -15,10 +15,6 @@ import (
 	redis_results "github.com/kalbhor/tasqueue/results/redis"
 )
 
-func successCB(j tasqueue.JobCtx) {
-	log.Println("SUCCESS")
-}
-
 func main() {
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	srv, err := tasqueue.NewServer(redis_broker.New(redis_broker.Options{

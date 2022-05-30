@@ -15,7 +15,7 @@ var (
 // ConcurrencyOpt defines an option to set concurrency for workers.
 type ConcurrencyOpt uint32
 
-func Concurrency(val uint32) ConcurrencyOpt {
+func Concurrency(val uint32) Opts {
 	return ConcurrencyOpt(val)
 }
 

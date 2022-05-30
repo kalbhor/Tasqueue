@@ -303,7 +303,7 @@ func (s *Server) GetResult(ctx context.Context, uuid string) ([]byte, error) {
 	return b, nil
 }
 
-// Start() starts the task consumer and processor. It is a blocking function.
+// Start() starts the job consumer and processor. It is a blocking function.
 func (s *Server) Start(ctx context.Context) {
 	work := make(chan []byte)
 
@@ -345,7 +345,7 @@ func (s *Server) process(ctx context.Context, w chan []byte, wg *sync.WaitGroup)
 				break
 			}
 			// Fetch the registered task handler.
-			task, err := s.getHandler(msg.Job.Handler)
+			task, err := s.getHandler(msg.Job.Task)
 			if err != nil {
 				s.log.Errorf("handler not found : %v", err)
 				break
