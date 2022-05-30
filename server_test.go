@@ -54,14 +54,10 @@ func TestGetJob(t *testing.T) {
 		}
 
 		// Wait for task to be consumed & processed.
-	WAIT:
-		time.Sleep(time.Second)
+		time.Sleep(3 * time.Second)
 		msg, err := srv.GetJob(ctx, uuid)
 		if err != nil {
 			t.Fatal(err)
-		}
-		if msg.Status == StatusProcessing {
-			goto WAIT
 		}
 
 		if msg.Status != status {
@@ -86,16 +82,11 @@ func TestGetGroup(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-	WAIT:
 		// Wait for task to be consumed & processed.
-		time.Sleep(time.Second)
+		time.Sleep(3 * time.Second)
 		msg, err := srv.GetGroup(ctx, uuid)
 		if err != nil {
 			t.Fatal(err)
-		}
-
-		if msg.Status == StatusProcessing {
-			goto WAIT
 		}
 
 		if msg.Status != status {
