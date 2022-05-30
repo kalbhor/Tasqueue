@@ -83,14 +83,14 @@ func TestGetGroup(t *testing.T) {
 			t.Fatal(err)
 		}
 		// Wait for task to be consumed & processed.
-		time.Sleep(3 * time.Second)
+		time.Sleep(10 * time.Second)
 		msg, err := srv.GetGroup(ctx, uuid)
 		if err != nil {
 			t.Fatal(err)
 		}
+		t.Logf("group message : %v", msg)
 
 		if msg.Status != status {
-			t.Logf("group message : %v", msg)
 			t.Fatalf("incorrect job status, expected %s, got %s", status, msg.Status)
 		}
 	}
