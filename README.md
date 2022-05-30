@@ -2,7 +2,7 @@
 
 ![taskqueue](https://user-images.githubusercontent.com/14031096/170992942-3b62e055-6d9e-4c08-a277-ed6d6e9a4c2a.png)
 
-[![GoDoc](https://godoc.org/github.com/kalbhor/tasqueue?status.svg)](https://godoc.org/github.com/kalbhor/tasqueue) 
+[![Run Tests](https://github.com/kalbhor/Tasqueue/actions/workflows/test.yml/badge.svg)](https://github.com/kalbhor/Tasqueue/actions/workflows/test.yml) [![GoDoc](https://godoc.org/github.com/kalbhor/tasqueue?status.svg)](https://godoc.org/github.com/kalbhor/tasqueue) 
 
 **Tasqueue** is a simple, lightweight distributed job/worker implementation in Go
 
