@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 )
 
 const (
@@ -13,7 +14,7 @@ const (
 )
 
 func newServer(t *testing.T) *Server {
-	srv, err := NewServer(NewMockBroker(), NewMockResults())
+	srv, err := NewServer(NewMockBroker(), NewMockResults(), Concurrency(5))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +87,7 @@ func (r *MockBroker) Consume(ctx context.Context, work chan []byte, queue string
 		case <-ctx.Done():
 			fmt.Println("stopping consumer")
 			return
-		default:
+		case <-time.Tick(time.Millisecond * 10):
 			r.mu.Lock()
 			q := r.queues[queue]
 			r.mu.Unlock()
@@ -117,7 +118,7 @@ func makeJob(t *testing.T, f bool) Job {
 		t.Fatal(err)
 	}
 
-	job, err := NewJob(taskName, j)
+	job, err := NewJob(taskName, j, MaxRetry(1))
 	if err != nil {
 		t.Fatal(err)
 	}
