@@ -14,11 +14,17 @@ jobs:
     name: Go ${{ matrix.go }} Tests
     steps:
       - uses: actions/checkout@v2
-      
+
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
           go-version: ${{ matrix.go }}
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Build
+        run: go build -v ./...
 
       - name: Run Test
         run: go test -v ./...

@@ -30,7 +30,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	srv.RegisterTask("add", tasks.SumProcessor, tasqueue.SuccessCallback(successCB))
+	srv.RegisterTask("add", tasks.SumProcessor)
 
 	var chain []tasqueue.Job
 
