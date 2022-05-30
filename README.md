@@ -1,3 +1,7 @@
+<a href="https://zerodha.tech"><img src="https://zerodha.tech/static/images/github-badge.svg" align="right" /></a>
+
+
+
 **Tasqueue** is a simple, lightweight distributed job/worker implementation in Go
 
 ---
@@ -251,3 +255,9 @@ if err != nil {
 	log.Fatal(err)
 }
 ```
+
+## Credits 
+- @knadh for the logo, code review & suggestions - callbacks, `JobCtx`
+
+## License 
+BSD-2-Clause-FreeBSD
