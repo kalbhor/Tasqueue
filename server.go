@@ -2,7 +2,6 @@ package tasqueue
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -117,182 +116,6 @@ func NewServer(b Broker, r Results, opts ...Opts) (*Server, error) {
 	}, nil
 }
 
-// Enqueue() accepts a job and returns the assigned UUID.
-// The following steps take place:
-// 1. Converts it into a job message, which assigns a UUID (among other meta info) to the job.
-// 2. Sets the job status as "started" on the results store.
-// 3. Enqueues the job (if the job is scheduled, pushes it onto the scheduler)
-func (s *Server) Enqueue(ctx context.Context, t Job) (string, error) {
-	var (
-		msg = t.message()
-	)
-
-	// Set job status in the results backend.
-	if err := s.statusStarted(ctx, msg); err != nil {
-		return "", err
-	}
-
-	// If a schedule is set, add a cron job.
-	if t.opts.schedule != "" {
-		if err := s.enqueueScheduled(ctx, msg); err != nil {
-			return "", err
-		}
-		return msg.UUID, nil
-	}
-
-	if err := s.enqueue(ctx, msg); err != nil {
-		return "", err
-	}
-
-	return msg.UUID, nil
-}
-
-func (s *Server) enqueueScheduled(ctx context.Context, msg JobMessage) error {
-	schJob := newScheduled(ctx, s.log, s.broker, msg)
-	// TODO: maintain a map of scheduled cron tasks
-	if _, err := s.cron.AddJob(msg.Schedule, schJob); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *Server) enqueue(ctx context.Context, msg JobMessage) error {
-	b, err := msgpack.Marshal(msg)
-	if err != nil {
-		return err
-	}
-
-	if err := s.broker.Enqueue(ctx, b, msg.Queue); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// GetJob() accepts a UUID and returns the job message in the results store.
-// This is useful to check the status of a job message.
-func (s *Server) GetJob(ctx context.Context, uuid string) (JobMessage, error) {
-	s.log.Infof("getting job : %s", uuid)
-
-	b, err := s.results.Get(ctx, uuid)
-	if err != nil {
-		return JobMessage{}, err
-	}
-
-	var t JobMessage
-	if err := json.Unmarshal(b, &t); err != nil {
-		return JobMessage{}, err
-	}
-
-	return t, nil
-}
-
-// EnqueueGroup() accepts a group and returns the assigned UUID.
-// The following steps take place:
-// 1. Converts it into a group message, which assigns a UUID (among other meta info) to the group.
-// 2. Sets the group status as "started" on the results store.
-// 3. Loops over all jobs part of the group and enqueues the job each job.
-// 4. The job status map is updated with the uuids of each enqueued job.
-func (s *Server) EnqueueGroup(ctx context.Context, t Group) (string, error) {
-	msg := t.message()
-	for _, v := range t.Jobs {
-		uid, err := s.Enqueue(ctx, v)
-		if err != nil {
-			return "", fmt.Errorf("could not enqueue group : %w", err)
-		}
-		msg.JobStatus[uid] = StatusStarted
-	}
-
-	if err := s.setGroupMessage(ctx, msg); err != nil {
-		return "", err
-	}
-	return msg.UUID, nil
-}
-
-func (s *Server) GetGroup(ctx context.Context, uuid string) (GroupMessage, error) {
-	g, err := s.getGroupMessage(ctx, uuid)
-	if err != nil {
-		return g, nil
-	}
-	// If the group status is either "done" or "failed".
-	// Do an early return
-	if g.Status == StatusDone || g.Status == StatusFailed {
-		return g, nil
-	}
-
-	// jobStatus holds the updated map of job status'
-	jobStatus := make(map[string]string)
-
-	// Run over the individual jobs and their status.
-	for uuid, status := range g.JobStatus {
-		switch status {
-		// Jobs with a final status remain the same and do not require lookup
-		case StatusFailed, StatusDone:
-			jobStatus[uuid] = status
-		// Re-look the jobs where the status is an intermediatery state (processing, retrying, etc).
-		case StatusStarted, StatusProcessing, StatusRetrying:
-			j, err := s.GetJob(ctx, uuid)
-			if err != nil {
-				return GroupMessage{}, err
-			}
-			jobStatus[uuid] = j.Status
-
-		}
-	}
-
-	// Update the overall group status, based on the individual jobs.
-	g.JobStatus = jobStatus
-	g.Status = getGroupStatus(jobStatus)
-
-	// Re-set the group result in the store.
-	if err := s.setGroupMessage(ctx, g); err != nil {
-		return GroupMessage{}, err
-	}
-
-	return g, nil
-}
-
-func getGroupStatus(jobStatus map[string]string) string {
-	status := StatusDone
-	for _, st := range jobStatus {
-		if st == StatusFailed {
-			return StatusFailed
-		}
-		if st != StatusDone {
-			status = StatusProcessing
-		}
-	}
-
-	return status
-}
-
-func (s *Server) setGroupMessage(ctx context.Context, g GroupMessage) error {
-	b, err := json.Marshal(g)
-	if err != nil {
-		return err
-	}
-	if err := s.results.Set(ctx, g.UUID, b); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *Server) getGroupMessage(ctx context.Context, uuid string) (GroupMessage, error) {
-	b, err := s.results.Get(ctx, uuid)
-	if err != nil {
-		return GroupMessage{}, err
-	}
-
-	var g GroupMessage
-	if err := json.Unmarshal(b, &g); err != nil {
-		return GroupMessage{}, err
-	}
-
-	return g, nil
-}
-
 // GetResult() accepts a UUID and returns the result of the job in the results store.
 func (s *Server) GetResult(ctx context.Context, uuid string) ([]byte, error) {
 	b, err := s.results.Get(ctx, resultsPrefix+uuid)
@@ -382,7 +205,7 @@ func (s *Server) execJob(ctx context.Context, msg JobMessage, task Task) error {
 			if task.retryingCB != nil {
 				task.retryingCB(taskCtx)
 			}
-			return s.retryTask(ctx, msg)
+			return s.retryJob(ctx, msg)
 		} else {
 			if task.failedCB != nil {
 				task.failedCB(taskCtx)
@@ -396,20 +219,19 @@ func (s *Server) execJob(ctx context.Context, msg JobMessage, task Task) error {
 		task.successCB(taskCtx)
 	}
 
-	// If the task contains OnSuccess tasks (part of a chain), enqueue them.
+	// If the task contains OnSuccess task (part of a chain), enqueue them.
 	if msg.Job.OnSuccess != nil {
-		for _, t := range msg.Job.OnSuccess {
-			if _, err := s.Enqueue(ctx, t); err != nil {
-				return err
-			}
+		msg.OnSuccessUUID, err = s.Enqueue(ctx, *msg.Job.OnSuccess)
+		if err != nil {
+			return err
 		}
 	}
 
 	return s.statusDone(ctx, msg)
 }
 
-// retryTask() increments the retried count and re-queues the task message.
-func (s *Server) retryTask(ctx context.Context, msg JobMessage) error {
+// retryJob() increments the retried count and re-queues the task message.
+func (s *Server) retryJob(ctx context.Context, msg JobMessage) error {
 
 	msg.Retried += 1
 	b, err := msgpack.Marshal(msg)
@@ -474,16 +296,4 @@ func (s *Server) statusRetrying(ctx context.Context, t JobMessage) error {
 	t.Status = StatusRetrying
 
 	return s.setJobMessage(ctx, t)
-}
-
-func (s *Server) setJobMessage(ctx context.Context, t JobMessage) error {
-	b, err := json.Marshal(t)
-	if err != nil {
-		return fmt.Errorf("could not set job message in store : %w", err)
-	}
-	if err := s.results.Set(ctx, t.UUID, b); err != nil {
-		return fmt.Errorf("could not set job message in store : %w", err)
-	}
-
-	return nil
 }

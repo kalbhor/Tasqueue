@@ -54,7 +54,7 @@ func main() {
 	}
 
 	t, _ := tasqueue.NewChain(chain...)
-	srv.Enqueue(ctx, t)
+	srv.EnqueueChain(ctx, t)
 
 	srv.Start(ctx)
 

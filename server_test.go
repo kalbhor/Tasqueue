@@ -2,95 +2,99 @@ package tasqueue
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"sync"
 	"testing"
-	"time"
 )
 
-func TestEnqueue(t *testing.T) {
-	var (
-		ctx = context.Background()
-		srv = newServer(t)
-		job = makeJob(t, false)
-	)
+const (
+	taskName = "mock_handler"
+)
 
-	uuid, err := srv.Enqueue(ctx, job)
+func newServer(t *testing.T) *Server {
+	srv, err := NewServer(NewMockBroker(), NewMockResults(), Concurrency(5))
 	if err != nil {
 		t.Fatal(err)
 	}
+	srv.RegisterTask(taskName, MockHandler)
 
-	t.Logf("Enqueued job with uuid : %s\n", uuid)
+	return srv
 }
 
-func TestEnqueueGroup(t *testing.T) {
-	var (
-		ctx   = context.Background()
-		srv   = newServer(t)
-		group = makeGroup(t, false, false)
-	)
+type MockPayload struct {
+	ShouldErr bool
+}
 
-	uuid, err := srv.EnqueueGroup(ctx, group)
-	if err != nil {
-		t.Fatal(err)
+func MockHandler(msg []byte, ctx JobCtx) error {
+	var m MockPayload
+	if err := json.Unmarshal(msg, &m); err != nil {
+		return err
 	}
 
-	t.Logf("Enqueued job with uuid : %s\n", uuid)
+	if m.ShouldErr {
+		return fmt.Errorf("task ended with error")
+	}
+
+	return nil
 }
 
-func TestGetJob(t *testing.T) {
-	var (
-		jobs = map[string]Job{
-			StatusDone:   makeJob(t, false),
-			StatusFailed: makeJob(t, true),
-		}
-		srv = newServer(t)
-		ctx = context.Background()
-	)
-	go srv.Start(ctx)
+type MockResults struct {
+	mu    sync.Mutex
+	store map[string][]byte
+}
 
-	for status, job := range jobs {
-		uuid, err := srv.Enqueue(ctx, job)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		// Wait for task to be consumed & processed.
-		time.Sleep(time.Second)
-		msg, err := srv.GetJob(ctx, uuid)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if msg.Status != status {
-			t.Fatalf("incorrect job status, expected %s, got %s", status, msg.Status)
-		}
+func NewMockResults() *MockResults {
+	return &MockResults{
+		store: make(map[string][]byte),
 	}
 }
 
-func TestGetGroup(t *testing.T) {
-	var (
-		groups = map[string]Group{
-			StatusDone:   makeGroup(t, false, false),
-			StatusFailed: makeGroup(t, true, true),
-		}
-		srv = newServer(t)
-		ctx = context.Background()
-	)
-	go srv.Start(ctx)
+func (r *MockResults) Get(ctx context.Context, uuid string) ([]byte, error) {
+	r.mu.Lock()
+	v, ok := r.store[uuid]
+	r.mu.Unlock()
+	if !ok {
+		return nil, fmt.Errorf("value not found")
+	}
 
-	for status, group := range groups {
-		uuid, err := srv.EnqueueGroup(ctx, group)
-		if err != nil {
-			t.Fatal(err)
-		}
-		// Wait for task to be consumed & processed.
-		time.Sleep(time.Second)
-		msg, err := srv.GetGroup(ctx, uuid)
-		if err != nil {
-			t.Fatal(err)
-		}
+	return v, nil
+}
 
-		if msg.Status != status {
-			t.Fatalf("incorrect job status, expected %s, got %s", status, msg.Status)
+func (r *MockResults) Set(ctx context.Context, uuid string, b []byte) error {
+	r.mu.Lock()
+	r.store[uuid] = b
+	r.mu.Unlock()
+
+	return nil
+}
+
+type MockBroker struct {
+	mu     sync.Mutex
+	queues map[string][][]byte
+	data   chan []byte
+}
+
+func NewMockBroker() *MockBroker {
+	return &MockBroker{
+		queues: make(map[string][][]byte),
+		data:   make(chan []byte, 100),
+	}
+}
+
+func (r *MockBroker) Consume(ctx context.Context, work chan []byte, queue string) {
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("stopping consumer")
+			return
+		case d := <-r.data:
+			work <- d
 		}
 	}
+}
+
+func (r *MockBroker) Enqueue(ctx context.Context, msg []byte, queue string) error {
+	r.data <- msg
+	return nil
 }

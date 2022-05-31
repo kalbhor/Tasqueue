@@ -2,7 +2,8 @@
 
 ![taskqueue](https://user-images.githubusercontent.com/14031096/170992942-3b62e055-6d9e-4c08-a277-ed6d6e9a4c2a.png)
 
-[![Run Tests](https://github.com/kalbhor/Tasqueue/actions/workflows/test.yml/badge.svg)](https://github.com/kalbhor/Tasqueue/actions/workflows/test.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/kalbhor/tasqueue)](https://goreportcard.com/report/github.com/kalbhor/tasqueue) ![GoCover](https://gocover.io/_badge/github.com/kalbhor/tasqueue)](https://gocover.io/_badge/github.com/kalbhor/tasqueue)
+[![Run Tests](https://github.com/kalbhor/Tasqueue/actions/workflows/test.yml/badge.svg)](https://github.com/kalbhor/Tasqueue/actions/workflows/test.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/kalbhor/tasqueue)](https://goreportcard.com/report/github.com/kalbhor/tasqueue) 
+![GoCover](https://gocover.io/_badge/github.com/kalbhor/tasqueue)](https://gocover.io/_badge/github.com/kalbhor/tasqueue)
 
 **Tasqueue** is a simple, lightweight distributed job/worker implementation in Go
 
@@ -25,6 +26,8 @@
 	* [Getting group message](#getting-a-group-message)
 * [Chain](#chain)
 	* [Creating a chain](#creating-a-chain)
+	* [Enqueuing a chain](#enqueuing-a-chain)
+	* [Getting chain message](#getting-a-group-chain)
 * [Result](#result)
 	* [Get Result](#get-result)
 
@@ -274,6 +277,40 @@ if err != nil {
 	log.Fatal(err)
 }
 ```
+
+#### Enqueuing a chain
+Once a chain is created, it can be enqueued via the server for processing. Calling `srv.EnqueueChain` returns a chain uuid which can be used to query the status of the chain.
+
+```go
+chainUUID, err := srv.EnqueueChain(ctx, chn)
+if err != nil {
+	log.Fatal(err)
+}
+```
+
+#### Getting a chain message 
+To query the details of a chain that was enqueued, we can use `srv.GetChain`. It returns a `ChainMessage` which contains details related to a chian. 
+
+```go
+chainMsg, err := srv.GetChain(ctx, chainUUID)
+if err != nil {
+	log.Fatal(err)
+}
+```
+Fields available in a `ChainMessage` (embeds `ChainMeta`):
+```go
+// ChainMeta contains fields related to a chain job.
+type ChainMeta struct {
+	UUID string
+	// Status of the overall chain
+	Status string
+	// UUID of the current job part of chain
+	JobUUID string
+	// List of UUIDs of completed jobs
+	PrevJobs []string
+}
+```
+
 
 ### Result
 A result is arbitrary `[]byte` data saved by a handler or callback via `JobCtx.Save()`. 
