@@ -46,8 +46,13 @@
 A tasqueue server is the main store that holds the broker and the results interfaces. It also acts as a hub to register tasks.
 
 #### Server Options
-- `func Queue(string) Opts` : Name of the queue to enqueue/consume jobs from. (default: `tasqueue:tasks`)
-- `func Concurrency(uint32) Opts` : The number of go routines spawned to process jobs on the registered queue. (default : `1`)
+```go
+// ServerOpts are curated options to configure a server.
+type ServerOpts struct {
+	Concurrency uint32 // default: `tasqueue:tasks`
+	Queue       string // default : `1`
+}
+```
 
 #### Usage
 ```go
@@ -74,7 +79,7 @@ func main() {
 	})
 
 
-	srv, err := tasqueue.NewServer(broker, results, tasqueue.Concurrency(5))
+	srv, err := tasqueue.NewServer(broker, results,tasqueue.ServerOpts{Concurrency: 5})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -82,13 +87,15 @@ func main() {
 ```
 
 #### Task Options 
-- `func SuccessCallback(f func(JobCtx)) Opts` : Callback function executed when a job completes successfully.
-
-- `func ProcessingCallback(f func(JobCtx)) Opts` : Callback function executed when a job is being processed (picked up by processor).
-
-- `func RetryingCallback(f func(JobCtx)) Opts` : Callback function executed when a job fails and is enqueued to be retried. 
-
-- `func FailureCallback(f func(JobCtx)) Opts` : Callback function executed when a job fails (all retries complete).
+Task options are callbacks that are executed one a state change.
+```go
+type TaskOpts struct {
+	SuccessCB    func(JobCtx)
+	ProcessingCB func(JobCtx)
+	RetryingCB   func(JobCtx)
+	FailedCB     func(JobCtx)
+}
+```
 
 #### Registering tasks
 A task can be registered by supplying a name, handler and options. 
@@ -132,7 +139,7 @@ func SumProcessor(b []byte, m tasqueue.JobCtx) error {
 ```
 
 ```go
-srv.RegisterTask("add", tasks.SumProcessor)
+srv.RegisterTask("add", tasks.SumProcessor, TaskOpts{})
 ```
 
 #### Start server
@@ -146,16 +153,21 @@ srv.Start(ctx)
 A tasqueue job represents a unit of work pushed onto the queue, that requires processing using a registered Task. It holds a `[]byte` payload, a task name (which will process the payload) and various options.
 
 #### Job Options 
-- `func Queue(string) Opts` : Name of the queue onto which the job is pushed. (default: `tasqueue:tasks`). Note : To consume jobs pushed on a custom queue, the server must be initialised with the same queue.
-- `func Schedule(string) Opts`: Cron schedule for the job
-- `func MaxRetry(uint32) Opts`: Number of times the job will be retried, if failed. (default: `1`)
+```go
+// JobOpts holds the various options available to configure a job.
+type JobOpts struct {
+	Queue      string // default: `tasqueue:tasks`
+	MaxRetries uint32 // default: `1`
+	Schedule   string // cron schedule for the job
+}
+```
 
 #### Creating a job
 `NewJob` returns a job with the supplied payload. It accepts the name of the task, the payload and a list of options.
 
 ```go
 b, _ := json.Marshal(tasks.SumPayload{Arg1: 5, Arg2: 4})
-job, err := tasqueue.NewJob("add", b)
+job, err := tasqueue.NewJob("add", b, tasqueue.JobOpts{})
 if err != nil {
 	log.Fatal(err)
 }

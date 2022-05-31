@@ -24,14 +24,14 @@ type Job struct {
 	Task      string
 	Payload   []byte
 
-	opts jobOpts
+	opts JobOpts
 }
 
-// jobOpts holds the various options available to configure a job.
-type jobOpts struct {
-	queue    string
-	maxRetry uint32
-	schedule string
+// JobOpts holds the various options available to configure a job.
+type JobOpts struct {
+	Queue      string
+	MaxRetries uint32
+	Schedule   string
 }
 
 // Meta contains fields related to a job. These are updated when a task is consumed.
@@ -49,26 +49,16 @@ type Meta struct {
 
 // NewJob returns a job with arbitrary payload.
 // It accepts the name of the task, the payload and a list of options.
-func NewJob(handler string, payload []byte, opts ...Opts) (Job, error) {
-
-	// Create the job options with default values.
-	var jOpts = jobOpts{queue: DefaultQueue, maxRetry: defaultMaxRetry}
-
-	for _, v := range opts {
-		switch v.Name() {
-		case customQueueOpt:
-			jOpts.queue = v.Value().(string)
-		case customMaxRetry:
-			jOpts.maxRetry = v.Value().(uint32)
-		case customSchedule:
-			jOpts.schedule = v.Value().(string)
-		default:
-			return Job{}, fmt.Errorf("invalid option %s for task", v.Name())
-		}
+func NewJob(handler string, payload []byte, opts JobOpts) (Job, error) {
+	if opts.MaxRetries < 0 {
+		opts.MaxRetries = defaultMaxRetry
+	}
+	if opts.Queue == "" {
+		opts.Queue = DefaultQueue
 	}
 
 	return Job{
-		opts:    jOpts,
+		opts:    opts,
 		Task:    handler,
 		Payload: payload,
 	}, nil
@@ -98,9 +88,9 @@ func (t *Job) message() JobMessage {
 		Meta: Meta{
 			UUID:     uuid.NewString(),
 			Status:   StatusStarted,
-			MaxRetry: t.opts.maxRetry,
-			Schedule: t.opts.schedule,
-			Queue:    t.opts.queue,
+			MaxRetry: t.opts.MaxRetries,
+			Schedule: t.opts.Schedule,
+			Queue:    t.opts.Queue,
 		},
 		Job: t,
 	}
@@ -122,7 +112,7 @@ func (s *Server) Enqueue(ctx context.Context, t Job) (string, error) {
 	}
 
 	// If a schedule is set, add a cron job.
-	if t.opts.schedule != "" {
+	if t.opts.Schedule != "" {
 		if err := s.enqueueScheduled(ctx, msg); err != nil {
 			return "", err
 		}

@@ -35,18 +35,18 @@ func main() {
 		log.Fatal(err)
 	}
 
-	srv, err := tasqueue.NewServer(brkr, res, tasqueue.Concurrency(5))
+	srv, err := tasqueue.NewServer(brkr, res, tasqueue.ServerOpts{Concurrency: 5})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	srv.RegisterTask("add", tasks.SumProcessor)
+	srv.RegisterTask("add", tasks.SumProcessor, tasqueue.TaskOpts{})
 
 	var chain []tasqueue.Job
 
 	for i := 0; i < 3; i++ {
 		b, _ := json.Marshal(tasks.SumPayload{Arg1: i, Arg2: 4})
-		task, err := tasqueue.NewJob("add", b)
+		task, err := tasqueue.NewJob("add", b, tasqueue.JobOpts{})
 		if err != nil {
 			log.Fatal(err)
 		}

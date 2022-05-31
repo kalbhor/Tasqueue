@@ -58,7 +58,7 @@ func makeJob(t *testing.T, f bool) Job {
 		t.Fatal(err)
 	}
 
-	job, err := NewJob(taskName, j, MaxRetry(1))
+	job, err := NewJob(taskName, j, JobOpts{MaxRetries: 1})
 	if err != nil {
 		t.Fatal(err)
 	}

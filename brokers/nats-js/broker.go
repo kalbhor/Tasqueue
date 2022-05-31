@@ -3,7 +3,6 @@ package nats
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"
@@ -22,7 +21,6 @@ type Options struct {
 	Username    string
 	Password    string
 
-	mu sync.Mutex
 	// Stream -> Subjects map
 	Streams map[string][]string
 }
@@ -47,7 +45,6 @@ func New(cfg Options) (*Broker, error) {
 	}
 
 	// Create streams and add subjects to stream for persistence.
-	cfg.mu.Lock()
 	for k, v := range cfg.Streams {
 		if _, err := js.AddStream(&nats.StreamConfig{
 			Name:     k,
@@ -56,7 +53,6 @@ func New(cfg Options) (*Broker, error) {
 			return nil, err
 		}
 	}
-	cfg.mu.Unlock()
 
 	return &Broker{
 		opt:  cfg,
@@ -65,32 +61,32 @@ func New(cfg Options) (*Broker, error) {
 	}, nil
 }
 
-// UpdateStream() adds additional subjects to a stream if stream exists.
-// Otherwise it creates a new stream and adds the subjects.
-func (b *Broker) UpdateStream(stream string, subjects []string) error {
-	b.opt.mu.Lock()
-	subs, ok := b.opt.Streams[stream]
-	b.opt.mu.Unlock()
+// // UpdateStream() adds additional subjects to a stream if stream exists.
+// // Otherwise it creates a new stream and adds the subjects.
+// func (b *Broker) UpdateStream(stream string, subjects []string) error {
+// 	b.opt.mu.Lock()
+// 	subs, ok := b.opt.Streams[stream]
+// 	b.opt.mu.Unlock()
 
-	if ok {
-		subs = append(subs, subjects...)
-		if _, err := b.conn.UpdateStream(&nats.StreamConfig{
-			Name:     stream,
-			Subjects: subs,
-		}); err != nil {
-			return err
-		}
-	} else {
-		if _, err := b.conn.AddStream(&nats.StreamConfig{
-			Name:     stream,
-			Subjects: subjects,
-		}); err != nil {
-			return err
-		}
-	}
+// 	if ok {
+// 		subs = append(subs, subjects...)
+// 		if _, err := b.conn.UpdateStream(&nats.StreamConfig{
+// 			Name:     stream,
+// 			Subjects: subs,
+// 		}); err != nil {
+// 			return err
+// 		}
+// 	} else {
+// 		if _, err := b.conn.AddStream(&nats.StreamConfig{
+// 			Name:     stream,
+// 			Subjects: subjects,
+// 		}); err != nil {
+// 			return err
+// 		}
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func (b *Broker) Enqueue(ctx context.Context, msg []byte, queue string) error {
 	if _, err := b.conn.Publish(queue, msg); err != nil {

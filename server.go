@@ -42,33 +42,22 @@ type Task struct {
 	name    string
 	handler handler
 
-	successCB    func(JobCtx)
-	processingCB func(JobCtx)
-	retryingCB   func(JobCtx)
-	failedCB     func(JobCtx)
+	opts TaskOpts
+}
+
+type TaskOpts struct {
+	SuccessCB    func(JobCtx)
+	ProcessingCB func(JobCtx)
+	RetryingCB   func(JobCtx)
+	FailedCB     func(JobCtx)
 }
 
 // RegisterTask maps a new task against the tasks map on the server.
 // It accepts different options for the task (to set callbacks).
-func (s *Server) RegisterTask(name string, fn handler, opts ...Opts) {
+func (s *Server) RegisterTask(name string, fn handler, opts TaskOpts) {
 	s.log.Infof("added handler: %s", name)
 
-	var t = Task{name: name, handler: fn}
-
-	for _, v := range opts {
-		switch v.Name() {
-		case successCallback:
-			t.successCB = v.Value().(SuccessCB)
-		case failedCallback:
-			t.failedCB = v.Value().(FailedCB)
-		case processingCallback:
-			t.processingCB = v.Value().(ProcessingCB)
-		case retryingCallback:
-			t.retryingCB = v.Value().(RetryingCB)
-		}
-	}
-
-	s.registerHandler(name, t)
+	s.registerHandler(name, Task{name: name, handler: fn, opts: opts})
 }
 
 // Server is the main store that holds the broker and the results communication interfaces.
@@ -82,28 +71,22 @@ type Server struct {
 	p     sync.RWMutex
 	tasks map[string]Task
 
-	opts serverOpts
+	opts ServerOpts
 }
 
-// serverOpts are curated options to configure a server.
-type serverOpts struct {
-	concurrency uint32
-	queue       string
+// ServerOpts are curated options to configure a server.
+type ServerOpts struct {
+	Concurrency uint32
+	Queue       string
 }
 
 // NewServer() returns a new instance of server, with sane defaults.
-func NewServer(b Broker, r Results, opts ...Opts) (*Server, error) {
-	var sOpts = serverOpts{concurrency: defaultConcurrency, queue: DefaultQueue}
-
-	for _, v := range opts {
-		switch v.Name() {
-		case concurrencyOpt:
-			sOpts.concurrency = v.Value().(uint32)
-		case customQueueOpt:
-			sOpts.queue = v.Value().(string)
-		default:
-			return nil, fmt.Errorf("ignoring invalid option: %s", v.Name())
-		}
+func NewServer(b Broker, r Results, opts ServerOpts) (*Server, error) {
+	if opts.Concurrency <= 0 {
+		opts.Concurrency = defaultConcurrency
+	}
+	if opts.Queue == "" {
+		opts.Queue = DefaultQueue
 	}
 
 	return &Server{
@@ -112,7 +95,7 @@ func NewServer(b Broker, r Results, opts ...Opts) (*Server, error) {
 		broker:  b,
 		results: r,
 		tasks:   make(map[string]Task),
-		opts:    sOpts,
+		opts:    opts,
 	}, nil
 }
 
@@ -131,10 +114,10 @@ func (s *Server) Start(ctx context.Context) {
 	work := make(chan []byte)
 
 	go s.cron.Start()
-	go s.consume(ctx, work, s.opts.queue)
+	go s.consume(ctx, work, s.opts.Queue)
 
 	var wg sync.WaitGroup
-	for i := 0; uint32(i) < s.opts.concurrency; i++ {
+	for i := 0; uint32(i) < s.opts.Concurrency; i++ {
 		wg.Add(1)
 		go s.process(ctx, work, &wg)
 	}
@@ -192,8 +175,8 @@ func (s *Server) execJob(ctx context.Context, msg JobMessage, task Task) error {
 	// TODO: maybe use sync.Pool
 	taskCtx := JobCtx{Meta: msg.Meta, store: s.results}
 
-	if task.processingCB != nil {
-		task.processingCB(taskCtx)
+	if task.opts.ProcessingCB != nil {
+		task.opts.ProcessingCB(taskCtx)
 	}
 
 	err := task.handler(msg.Job.Payload, taskCtx)
@@ -202,21 +185,21 @@ func (s *Server) execJob(ctx context.Context, msg JobMessage, task Task) error {
 		msg.PrevErr = err.Error()
 		// Try queueing the job again.
 		if msg.MaxRetry != msg.Retried {
-			if task.retryingCB != nil {
-				task.retryingCB(taskCtx)
+			if task.opts.RetryingCB != nil {
+				task.opts.RetryingCB(taskCtx)
 			}
 			return s.retryJob(ctx, msg)
 		} else {
-			if task.failedCB != nil {
-				task.failedCB(taskCtx)
+			if task.opts.FailedCB != nil {
+				task.opts.FailedCB(taskCtx)
 			}
 			// If we hit max retries, set the task status as failed.
 			return s.statusFailed(ctx, msg)
 		}
 	}
 
-	if task.successCB != nil {
-		task.successCB(taskCtx)
+	if task.opts.SuccessCB != nil {
+		task.opts.SuccessCB(taskCtx)
 	}
 
 	// If the task contains OnSuccess task (part of a chain), enqueue them.
