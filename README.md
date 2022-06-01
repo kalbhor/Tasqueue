@@ -6,6 +6,10 @@
 
 **Tasqueue** is a simple, lightweight distributed job/worker implementation in Go
 
+### Installation
+`go get -u github.com/kalbhor/tasqueue`
+
+
 * [Concepts](#concepts)
 * [Server](#server)
 	* [Options](#server-options)
