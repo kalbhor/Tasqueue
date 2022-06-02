@@ -72,7 +72,8 @@ type JobCtx struct {
 
 // Save() sets arbitrary results for a job on the results store.
 func (c *JobCtx) Save(b []byte) error {
-	return c.store.Set(nil, resultsPrefix+c.Meta.UUID, b)
+	// TODO: Maybe recieve context in Save()
+	return c.store.Set(context.Background(), resultsPrefix+c.Meta.UUID, b)
 }
 
 // JobMessage is a wrapper over Task, used to transport the task over a broker.
