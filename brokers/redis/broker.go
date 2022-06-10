@@ -51,7 +51,7 @@ func (b *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
 		default:
 			b.log.Info("receiving from consumer..")
 			res, err := b.conn.BLPop(ctx, pollPeriod, queue).Result()
-			if err != nil {
+			if err != nil && err.Error() != "redis: nil" {
 				b.log.Error("error consuming from redis queue", err)
 			} else if errors.Is(err, redis.Nil) {
 				b.log.Info(queue + ": no tasks to consume..")
