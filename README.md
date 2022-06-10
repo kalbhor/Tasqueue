@@ -303,6 +303,9 @@ if err != nil {
 }
 ```
 
+#### Getting results of previous job in a chain
+A job in the chain can access the results of the previous job in the chain by getting `JobCtx.Meta.PrevJobResults`. This will contain any job result saved by the previous job by `JobCtx.Save()`. 
+
 #### Getting a chain message 
 To query the details of a chain that was enqueued, we can use `srv.GetChain`. It returns a `ChainMessage` which contains details related to a chian. 
 
