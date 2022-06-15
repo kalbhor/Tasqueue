@@ -7,58 +7,50 @@
 **Tasqueue** is a simple, lightweight distributed job/worker implementation in Go
 
 ### Installation
+
 `go get -u github.com/kalbhor/tasqueue`
 
+- [Concepts](#concepts)
+- [Server](#server)
+  - [Options](#server-options)
+  - [Usage](#usage)
+  - [Task Options](#task-options)
+  - [Registering Tasks](#registering-tasks)
+  - [Starting Server](#start-server)
+- [Job](#job)
+  - [Options](#job-options)
+  - [Creating a job](#creating-a-job)
+  - [Enqueuing a job](#enqueuing-a-job)
+  - [Getting job message](#getting-a-job-message)
+  - [JobCtx](#jobctx)
+- [Group](#group)
+  - [Creating a group](#creating-a-group)
+  - [Enqueuing a group](#enqueuing-a-group)
+  - [Getting group message](#getting-a-group-message)
+- [Chain](#chain)
+  - [Creating a chain](#creating-a-chain)
+  - [Enqueuing a chain](#enqueuing-a-chain)
+  - [Getting chain message](#getting-a-group-chain)
+- [Result](#result)
+  - [Get Result](#get-result)
 
-* [Concepts](#concepts)
-* [Server](#server)
-	* [Options](#server-options)
-	* [Usage](#usage)
-	* [Task Options](#task-options)
-	* [Registering Tasks](#registering-tasks)
-	* [Starting Server](#start-server)
-* [Job](#job)
-	* [Options](#job-options)
-	* [Creating a job](#creating-a-job)
-	* [Enqueuing a job](#enqueuing-a-job)
-	* [Getting job message](#getting-a-job-message)
-	* [JobCtx](#jobctx)
-* [Group](#group)
-	* [Creating a group](#creating-a-group)
-	* [Enqueuing a group](#enqueuing-a-group)
-	* [Getting group message](#getting-a-group-message)
-* [Chain](#chain)
-	* [Creating a chain](#creating-a-chain)
-	* [Enqueuing a chain](#enqueuing-a-chain)
-	* [Getting chain message](#getting-a-group-chain)
-* [Result](#result)
-	* [Get Result](#get-result)
+## Concepts
 
-
-
-## Concepts 
 - `tasqueue.Broker` is a generic interface to enqueue and consume messages from a single queue. Currently supported brokers are
-[redis](./brokers/redis/) and [nats-jetstream](./brokers/nats-js/).
+  [redis](./brokers/redis/) and [nats-jetstream](./brokers/nats-js/).
 - `tasqueue.Results` is a generic interface to store the status and results of jobs. Currently supported result stores are
-[redis](./results/redis/) and [nats-jetstream](./results/nats-js/).
+  [redis](./results/redis/) and [nats-jetstream](./results/nats-js/).
 - `tasqueue.Task` is a pre-registered job handler. It stores a handler functions which is called to process a job. It also stores callbacks (if set through options), executed during different states of a job.
 - `tasqueue.Job` represents a unit of work pushed to a queue for consumption. It holds:
-	- `[]byte` payload (encoded in any manner, if required)
-	- task name used to identify the pre-registed task which will processes the job.
+  - `[]byte` payload (encoded in any manner, if required)
+  - task name used to identify the pre-registed task which will processes the job.
 
 ### Server
+
 A tasqueue server is the main store that holds the broker and the results interfaces. It also acts as a hub to register tasks.
 
-#### Server Options
-```go
-// ServerOpts are curated options to configure a server.
-type ServerOpts struct {
-	Concurrency uint32 // default: `tasqueue:tasks`
-	Queue       string // default : `1`
-}
-```
-
 #### Usage
+
 ```go
 package main
 
@@ -83,17 +75,22 @@ func main() {
 	})
 
 
-	srv, err := tasqueue.NewServer(broker, results,tasqueue.ServerOpts{Concurrency: 5})
+	srv, err := tasqueue.NewServer(broker, results)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 ```
 
-#### Task Options 
-Task options are callbacks that are executed one a state change.
+#### Task Options
+
+Concurrency is the number of processors run for this task. Queue is the queue to consume for this task.
+Task options contains callbacks that are executed one a state change.
+
 ```go
 type TaskOpts struct {
+	Concurrency  uint32
+	Queue        string
 	SuccessCB    func(JobCtx)
 	ProcessingCB func(JobCtx)
 	RetryingCB   func(JobCtx)
@@ -102,8 +99,9 @@ type TaskOpts struct {
 ```
 
 #### Registering tasks
-A task can be registered by supplying a name, handler and options. 
-Jobs can be processed using a task registered by a particular name. 
+
+A task can be registered by supplying a name, handler and options.
+Jobs can be processed using a task registered by a particular name.
 A handler is a function with the signature `func([]byte, JobCtx) error`. It is the responsibility of the handler to deal with the `[]byte` payload in whatever manner (decode, if required).
 
 ```go
@@ -143,10 +141,11 @@ func SumProcessor(b []byte, m tasqueue.JobCtx) error {
 ```
 
 ```go
-srv.RegisterTask("add", tasks.SumProcessor, TaskOpts{})
+srv.RegisterTask("add", tasks.SumProcessor, TaskOpts{Concurrency: 5})
 ```
 
 #### Start server
+
 `Start()` starts the job consumer and processor. It is a blocking function. It listens for jobs on the queue and spawns processor go routines.
 
 ```go
@@ -154,9 +153,11 @@ srv.Start(ctx)
 ```
 
 ### Job
+
 A tasqueue job represents a unit of work pushed onto the queue, that requires processing using a registered Task. It holds a `[]byte` payload, a task name (which will process the payload) and various options.
 
-#### Job Options 
+#### Job Options
+
 ```go
 // JobOpts holds the various options available to configure a job.
 type JobOpts struct {
@@ -167,6 +168,7 @@ type JobOpts struct {
 ```
 
 #### Creating a job
+
 `NewJob` returns a job with the supplied payload. It accepts the name of the task, the payload and a list of options.
 
 ```go
@@ -178,6 +180,7 @@ if err != nil {
 ```
 
 #### Enqueuing a job
+
 Once a job is created, it can be enqueued via the server for processing. Calling `srv.Enqueue` returns a job uuid which can be used to query the status of the job.
 
 ```go
@@ -187,8 +190,9 @@ if err != nil {
 }
 ```
 
-#### Getting a job message 
-To query the details of a job that was enqueued, we can use `srv.GetJob`. It returns a `JobMessage` which contains details related to a job. 
+#### Getting a job message
+
+To query the details of a job that was enqueued, we can use `srv.GetJob`. It returns a `JobMessage` which contains details related to a job.
 
 ```go
 jobMsg, err := srv.GetJob(ctx, uuid)
@@ -196,7 +200,9 @@ if err != nil {
 	log.Fatal(err)
 }
 ```
+
 Fields available in a `JobMessage` (embeds `Meta`):
+
 ```go
 // Meta contains fields related to a job. These are updated when a task is consumed.
 type Meta struct {
@@ -212,13 +218,15 @@ type Meta struct {
 ```
 
 #### JobCtx
+
 `JobCtx` is passed to handler functions and callbacks. It can be used to view the job's meta information (`JobCtx` embeds `Meta`) and also to save arbitrary results for a job using `func (c *JobCtx) Save(b []byte) error`
 
-
 ### Group
+
 A tasqueue group holds multiple jobs and pushes them all simultaneously onto the queue, the Group is considered successful only if all the jobs finish successfully.
 
 #### Creating a group
+
 `NewGroup` returns a Group holding the jobs passed.
 
 ```go
@@ -240,6 +248,7 @@ if err != nil {
 ```
 
 #### Enqueuing a group
+
 Once a group is created, it can be enqueued via the server for processing. Calling `srv.EnqueueGroup` returns a group uuid which can be used to query the status of the group.
 
 ```go
@@ -249,8 +258,9 @@ if err != nil {
 }
 ```
 
-#### Getting a group message 
-To query the details of a group that was enqueued, we can use `srv.GetGroup`. It returns a `GroupMessage` which contains details related to a group. 
+#### Getting a group message
+
+To query the details of a group that was enqueued, we can use `srv.GetGroup`. It returns a `GroupMessage` which contains details related to a group.
 
 ```go
 groupMsg, err := srv.GetGroup(ctx, groupUUID)
@@ -258,7 +268,9 @@ if err != nil {
 	log.Fatal(err)
 }
 ```
+
 Fields available in a `GroupMessage` (embeds `GroupMeta`):
+
 ```go
 // GroupMeta contains fields related to a group job. These are updated when a task is consumed.
 type GroupMeta struct {
@@ -270,9 +282,11 @@ type GroupMeta struct {
 ```
 
 ### Chain
+
 A tasqueue chain holds multiple jobs and pushes them one after the other (after a job succeeds), the Chain is considered successful only if the final job completes successfuly.
 
 #### Creating a chain
+
 `NewChain` returns a chain holding the jobs passed in the order.
 
 ```go
@@ -294,6 +308,7 @@ if err != nil {
 ```
 
 #### Enqueuing a chain
+
 Once a chain is created, it can be enqueued via the server for processing. Calling `srv.EnqueueChain` returns a chain uuid which can be used to query the status of the chain.
 
 ```go
@@ -304,10 +319,12 @@ if err != nil {
 ```
 
 #### Getting results of previous job in a chain
-A job in the chain can access the results of the previous job in the chain by getting `JobCtx.Meta.PrevJobResults`. This will contain any job result saved by the previous job by `JobCtx.Save()`. 
 
-#### Getting a chain message 
-To query the details of a chain that was enqueued, we can use `srv.GetChain`. It returns a `ChainMessage` which contains details related to a chian. 
+A job in the chain can access the results of the previous job in the chain by getting `JobCtx.Meta.PrevJobResults`. This will contain any job result saved by the previous job by `JobCtx.Save()`.
+
+#### Getting a chain message
+
+To query the details of a chain that was enqueued, we can use `srv.GetChain`. It returns a `ChainMessage` which contains details related to a chian.
 
 ```go
 chainMsg, err := srv.GetChain(ctx, chainUUID)
@@ -315,7 +332,9 @@ if err != nil {
 	log.Fatal(err)
 }
 ```
+
 Fields available in a `ChainMessage` (embeds `ChainMeta`):
+
 ```go
 // ChainMeta contains fields related to a chain job.
 type ChainMeta struct {
@@ -329,11 +348,12 @@ type ChainMeta struct {
 }
 ```
 
-
 ### Result
-A result is arbitrary `[]byte` data saved by a handler or callback via `JobCtx.Save()`. 
 
-#### Get Result 
+A result is arbitrary `[]byte` data saved by a handler or callback via `JobCtx.Save()`.
+
+#### Get Result
+
 ```go
 b, err := srv.GetResult(ctx, jobUUID)
 if err != nil {
@@ -341,8 +361,10 @@ if err != nil {
 }
 ```
 
-## Credits 
+## Credits
+
 - [@knadh](github.com/knadh) for the logo & feature suggestions
 
-## License 
+## License
+
 BSD-2-Clause-FreeBSD
