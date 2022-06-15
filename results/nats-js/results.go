@@ -54,7 +54,7 @@ func New(cfg Options) (*Results, error) {
 	}, nil
 }
 
-func (r *Results) Get(ctx context.Context, uuid string) ([]byte, error) {
+func (r *Results) Get(_ context.Context, uuid string) ([]byte, error) {
 	rs, err := r.conn.Get(resultPrefix + uuid)
 	if err != nil {
 		return nil, err
@@ -63,7 +63,7 @@ func (r *Results) Get(ctx context.Context, uuid string) ([]byte, error) {
 	return rs.Value(), nil
 }
 
-func (r *Results) Set(ctx context.Context, uuid string, b []byte) error {
+func (r *Results) Set(_ context.Context, uuid string, b []byte) error {
 	if _, err := r.conn.Put(resultPrefix+uuid, b); err != nil {
 		return err
 	}

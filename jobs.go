@@ -65,9 +65,6 @@ func DefaultMeta(opts JobOpts) Meta {
 // NewJob returns a job with arbitrary payload.
 // It accepts the name of the task, the payload and a list of options.
 func NewJob(handler string, payload []byte, opts JobOpts) (Job, error) {
-	if opts.MaxRetries < 0 {
-		opts.MaxRetries = defaultMaxRetry
-	}
 	if opts.Queue == "" {
 		opts.Queue = DefaultQueue
 	}
@@ -138,7 +135,7 @@ func (s *Server) enqueueWithMeta(ctx context.Context, t Job, meta Meta) (string,
 		return msg.UUID, nil
 	}
 
-	if err := s.enqueue(ctx, msg); err != nil {
+	if err := s.enqueueMessage(ctx, msg); err != nil {
 		return "", err
 	}
 
@@ -155,17 +152,13 @@ func (s *Server) enqueueScheduled(ctx context.Context, msg JobMessage) error {
 	return nil
 }
 
-func (s *Server) enqueue(ctx context.Context, msg JobMessage) error {
+func (s *Server) enqueueMessage(ctx context.Context, msg JobMessage) error {
 	b, err := msgpack.Marshal(msg)
 	if err != nil {
 		return err
 	}
 
-	if err := s.broker.Enqueue(ctx, b, msg.Queue); err != nil {
-		return err
-	}
-
-	return nil
+	return s.broker.Enqueue(ctx, b, msg.Queue)
 }
 
 func (s *Server) setJobMessage(ctx context.Context, t JobMessage) error {

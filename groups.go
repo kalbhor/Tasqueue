@@ -135,11 +135,7 @@ func (s *Server) setGroupMessage(ctx context.Context, g GroupMessage) error {
 	if err != nil {
 		return err
 	}
-	if err := s.results.Set(ctx, g.UUID, b); err != nil {
-		return err
-	}
-
-	return nil
+	return s.results.Set(ctx, g.UUID, b)
 }
 
 func (s *Server) getGroupMessage(ctx context.Context, uuid string) (GroupMessage, error) {
