@@ -13,11 +13,13 @@ const (
 )
 
 func newServer(t *testing.T) *Server {
-	srv, err := NewServer(NewMockBroker(), NewMockResults(), ServerOpts{Concurrency: 5})
+	srv, err := NewServer(NewMockBroker(), NewMockResults())
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv.RegisterTask(taskName, MockHandler, TaskOpts{})
+	srv.RegisterTask(taskName, MockHandler, TaskOpts{
+		Concurrency: 5,
+	})
 
 	return srv
 }
@@ -26,7 +28,7 @@ type MockPayload struct {
 	ShouldErr bool
 }
 
-func MockHandler(msg []byte, ctx JobCtx) error {
+func MockHandler(msg []byte, _ JobCtx) error {
 	var m MockPayload
 	if err := json.Unmarshal(msg, &m); err != nil {
 		return err
@@ -50,7 +52,7 @@ func NewMockResults() *MockResults {
 	}
 }
 
-func (r *MockResults) Get(ctx context.Context, uuid string) ([]byte, error) {
+func (r *MockResults) Get(_ context.Context, uuid string) ([]byte, error) {
 	r.mu.Lock()
 	v, ok := r.store[uuid]
 	r.mu.Unlock()
@@ -61,7 +63,7 @@ func (r *MockResults) Get(ctx context.Context, uuid string) ([]byte, error) {
 	return v, nil
 }
 
-func (r *MockResults) Set(ctx context.Context, uuid string, b []byte) error {
+func (r *MockResults) Set(_ context.Context, uuid string, b []byte) error {
 	r.mu.Lock()
 	r.store[uuid] = b
 	r.mu.Unlock()
@@ -70,7 +72,6 @@ func (r *MockResults) Set(ctx context.Context, uuid string, b []byte) error {
 }
 
 type MockBroker struct {
-	mu     sync.Mutex
 	queues map[string][][]byte
 	data   chan []byte
 }
@@ -82,7 +83,7 @@ func NewMockBroker() *MockBroker {
 	}
 }
 
-func (r *MockBroker) Consume(ctx context.Context, work chan []byte, queue string) {
+func (r *MockBroker) Consume(ctx context.Context, work chan []byte, _ string) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -94,7 +95,7 @@ func (r *MockBroker) Consume(ctx context.Context, work chan []byte, queue string
 	}
 }
 
-func (r *MockBroker) Enqueue(ctx context.Context, msg []byte, queue string) error {
+func (r *MockBroker) Enqueue(_ context.Context, msg []byte, _ string) error {
 	r.data <- msg
 	return nil
 }

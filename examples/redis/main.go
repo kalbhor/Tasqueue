@@ -25,12 +25,14 @@ func main() {
 		Addrs:    []string{"127.0.0.1:6379"},
 		Password: "",
 		DB:       0,
-	}), tasqueue.ServerOpts{Concurrency: 5})
+	}))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	srv.RegisterTask("add", tasks.SumProcessor, tasqueue.TaskOpts{})
+	srv.RegisterTask("add", tasks.SumProcessor, tasqueue.TaskOpts{
+		Concurrency: 5,
+	})
 
 	var chain []tasqueue.Job
 

@@ -35,12 +35,14 @@ func main() {
 		log.Fatal(err)
 	}
 
-	srv, err := tasqueue.NewServer(brkr, res, tasqueue.ServerOpts{Concurrency: 5})
+	srv, err := tasqueue.NewServer(brkr, res)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	srv.RegisterTask("add", tasks.SumProcessor, tasqueue.TaskOpts{})
+	srv.RegisterTask("add", tasks.SumProcessor, tasqueue.TaskOpts{
+		Concurrency: 5,
+	})
 
 	var chain []tasqueue.Job
 
