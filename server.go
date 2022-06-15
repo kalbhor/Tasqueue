@@ -123,7 +123,7 @@ func (s *Server) Start(ctx context.Context) {
 		for i := 0; i < int(task.opts.Concurrency); i++ {
 			wg.Add(1)
 			go func() {
-				s.process(ctx, task, work)
+				s.process(ctx, work)
 				wg.Done()
 			}()
 		}
@@ -139,7 +139,7 @@ func (s *Server) consume(ctx context.Context, work chan []byte, queue string) {
 
 // process() listens on the work channel for tasks. On receiving a task it checks the
 // processors map and passes payload to relevant processor.
-func (s *Server) process(ctx context.Context, task Task, w chan []byte) {
+func (s *Server) process(ctx context.Context, w chan []byte) {
 	s.log.Info("starting processor..")
 	for {
 		select {

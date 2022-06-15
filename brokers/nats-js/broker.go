@@ -88,7 +88,7 @@ func New(cfg Options) (*Broker, error) {
 // 	return nil
 // }
 
-func (b *Broker) Enqueue(ctx context.Context, msg []byte, queue string) error {
+func (b *Broker) Enqueue(_ context.Context, msg []byte, queue string) error {
 	if _, err := b.conn.Publish(queue, msg); err != nil {
 		return err
 	}

@@ -129,11 +129,7 @@ func (s *Server) setChainMessage(ctx context.Context, c ChainMessage) error {
 	if err != nil {
 		return err
 	}
-	if err := s.results.Set(ctx, c.UUID, b); err != nil {
-		return err
-	}
-
-	return nil
+	return s.results.Set(ctx, c.UUID, b)
 }
 
 func (s *Server) getChainMessage(ctx context.Context, uuid string) (ChainMessage, error) {
