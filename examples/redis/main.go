@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"sync"
 	"time"
 
 	"github.com/kalbhor/tasqueue"
@@ -32,38 +31,31 @@ func main() {
 	}
 
 	srv.RegisterTask("add", tasks.SumProcessor, tasqueue.TaskOpts{
-		Concurrency: 10,
+		Concurrency: 5,
 	})
 
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		srv.Start(ctx)
-		wg.Done()
-	}()
-Loop:
-	for {
-		select {
-		case <-time.Tick(1 * time.Second):
-			var chain []tasqueue.Job
+	var chain []tasqueue.Job
 
-			for i := 0; i < 3; i++ {
-				b, _ := json.Marshal(tasks.SumPayload{Arg1: i, Arg2: 4})
-				task, err := tasqueue.NewJob("add", b, tasqueue.JobOpts{})
-				if err != nil {
-					log.Fatal(err)
-				}
-				chain = append(chain, task)
-			}
-
-			t, _ := tasqueue.NewGroup(chain...)
-			srv.EnqueueGroup(ctx, t)
-		case <-ctx.Done():
-			break Loop
+	for i := 0; i < 3; i++ {
+		b, _ := json.Marshal(tasks.SumPayload{Arg1: i, Arg2: 4})
+		task, err := tasqueue.NewJob("add", b, tasqueue.JobOpts{})
+		if err != nil {
+			log.Fatal(err)
 		}
+		chain = append(chain, task)
 	}
 
-	wg.Wait()
+	t, _ := tasqueue.NewGroup(chain...)
+	x, _ := srv.EnqueueGroup(ctx, t)
+	go func() {
+		for {
+			select {
+			case <-time.Tick(time.Second * 1):
+				fmt.Println(srv.GetGroup(ctx, x))
+			}
+		}
+	}()
+	srv.Start(ctx)
 
 	// Create a task payload.
 	fmt.Println("exit..")
