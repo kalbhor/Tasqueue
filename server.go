@@ -46,6 +46,8 @@ type Task struct {
 }
 
 type TaskOpts struct {
+	Concurrency  uint32
+	Queue        string
 	SuccessCB    func(JobCtx)
 	ProcessingCB func(JobCtx)
 	RetryingCB   func(JobCtx)
@@ -56,6 +58,13 @@ type TaskOpts struct {
 // It accepts different options for the task (to set callbacks).
 func (s *Server) RegisterTask(name string, fn handler, opts TaskOpts) {
 	s.log.Infof("added handler: %s", name)
+
+	if opts.Concurrency <= 0 {
+		opts.Concurrency = defaultConcurrency
+	}
+	if opts.Queue == "" {
+		opts.Queue = DefaultQueue
+	}
 
 	s.registerHandler(name, Task{name: name, handler: fn, opts: opts})
 }
@@ -70,32 +79,16 @@ type Server struct {
 
 	p     sync.RWMutex
 	tasks map[string]Task
-
-	opts ServerOpts
-}
-
-// ServerOpts are curated options to configure a server.
-type ServerOpts struct {
-	Concurrency uint32
-	Queue       string
 }
 
 // NewServer() returns a new instance of server, with sane defaults.
-func NewServer(b Broker, r Results, opts ServerOpts) (*Server, error) {
-	if opts.Concurrency <= 0 {
-		opts.Concurrency = defaultConcurrency
-	}
-	if opts.Queue == "" {
-		opts.Queue = DefaultQueue
-	}
-
+func NewServer(b Broker, r Results) (*Server, error) {
 	return &Server{
 		log:     logrus.New(),
 		cron:    cron.New(),
 		broker:  b,
 		results: r,
 		tasks:   make(map[string]Task),
-		opts:    opts,
 	}, nil
 }
 
@@ -111,15 +104,30 @@ func (s *Server) GetResult(ctx context.Context, uuid string) ([]byte, error) {
 
 // Start() starts the job consumer and processor. It is a blocking function.
 func (s *Server) Start(ctx context.Context) {
-	work := make(chan []byte)
-
 	go s.cron.Start()
-	go s.consume(ctx, work, s.opts.Queue)
+	// go s.consume(ctx, work, s.opts.Queue)
+	// Loop over each registered task.
+	s.p.RLock()
+	tasks := s.tasks
+	s.p.RUnlock()
 
 	var wg sync.WaitGroup
-	for i := 0; uint32(i) < s.opts.Concurrency; i++ {
+	for _, task := range tasks {
+		task := task
+		work := make(chan []byte)
 		wg.Add(1)
-		go s.process(ctx, work, &wg)
+		go func() {
+			s.consume(ctx, work, task.opts.Queue)
+			wg.Done()
+		}()
+
+		for i := 0; i < int(task.opts.Concurrency); i++ {
+			wg.Add(1)
+			go func() {
+				s.process(ctx, task, work)
+				wg.Done()
+			}()
+		}
 	}
 	wg.Wait()
 }
@@ -132,13 +140,12 @@ func (s *Server) consume(ctx context.Context, work chan []byte, queue string) {
 
 // process() listens on the work channel for tasks. On receiving a task it checks the
 // processors map and passes payload to relevant processor.
-func (s *Server) process(ctx context.Context, w chan []byte, wg *sync.WaitGroup) {
+func (s *Server) process(ctx context.Context, task Task, w chan []byte) {
 	s.log.Info("starting processor..")
 	for {
 		select {
 		case <-ctx.Done():
 			s.log.Info("shutting down processor..")
-			wg.Done()
 			return
 		case work := <-w:
 			var (
@@ -240,9 +247,9 @@ func (s *Server) registerHandler(name string, t Task) {
 }
 
 func (s *Server) getHandler(name string) (Task, error) {
-	s.p.Lock()
+	s.p.RLock()
 	fn, ok := s.tasks[name]
-	s.p.Unlock()
+	s.p.RUnlock()
 	if !ok {
 		return Task{}, fmt.Errorf("handler %v not found", name)
 	}

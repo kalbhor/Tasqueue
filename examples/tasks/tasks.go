@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"encoding/json"
+	"log"
 
 	"github.com/kalbhor/tasqueue"
 )
@@ -21,6 +22,8 @@ func SumProcessor(b []byte, m tasqueue.JobCtx) error {
 	if err := json.Unmarshal(b, &pl); err != nil {
 		return err
 	}
+
+	log.Printf("result: %d", pl.Arg1+pl.Arg2)
 
 	rs, err := json.Marshal(SumResult{Result: pl.Arg1 + pl.Arg2})
 	if err != nil {

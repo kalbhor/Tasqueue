@@ -13,11 +13,13 @@ const (
 )
 
 func newServer(t *testing.T) *Server {
-	srv, err := NewServer(NewMockBroker(), NewMockResults(), ServerOpts{Concurrency: 5})
+	srv, err := NewServer(NewMockBroker(), NewMockResults())
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv.RegisterTask(taskName, MockHandler, TaskOpts{})
+	srv.RegisterTask(taskName, MockHandler, TaskOpts{
+		Concurrency: 5,
+	})
 
 	return srv
 }
