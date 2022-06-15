@@ -45,6 +45,21 @@ type Meta struct {
 	Retried       uint32
 	PrevErr       string
 	ProcessedAt   time.Time
+
+	// PrevJobResults contains any job results set by a previous job in a chain.
+	// This will be nil if the previous job doesn't set the results on JobCtx.
+	PrevJobResults []byte
+}
+
+// DefaultMeta returns Meta with a UUID and other defaults filled in.
+func DefaultMeta(opts JobOpts) Meta {
+	return Meta{
+		UUID:     uuid.NewString(),
+		Status:   StatusStarted,
+		MaxRetry: opts.MaxRetries,
+		Schedule: opts.Schedule,
+		Queue:    opts.Queue,
+	}
 }
 
 // NewJob returns a job with arbitrary payload.
@@ -67,12 +82,18 @@ func NewJob(handler string, payload []byte, opts JobOpts) (Job, error) {
 // JobCtx is passed onto handler functions. It allows access to a job's meta information to the handler.
 type JobCtx struct {
 	store Results
-	Meta  Meta
+	// results just holds the results set by calling Save().
+	results []byte
+	Meta    Meta
 }
 
 // Save() sets arbitrary results for a job on the results store.
 func (c *JobCtx) Save(b []byte) error {
-	return c.store.Set(nil, resultsPrefix+c.Meta.UUID, b)
+	// TODO: Maybe recieve context in Save()
+	// Store saved in the job ctx as well to easily get the result instead of
+	// going to the broker every time.
+	c.results = b
+	return c.store.Set(context.Background(), resultsPrefix+c.Meta.UUID, b)
 }
 
 // JobMessage is a wrapper over Task, used to transport the task over a broker.
@@ -83,16 +104,10 @@ type JobMessage struct {
 }
 
 // message() converts a task into a TaskMessage, ready to be enqueued onto the broker.
-func (t *Job) message() JobMessage {
+func (t *Job) message(meta Meta) JobMessage {
 	return JobMessage{
-		Meta: Meta{
-			UUID:     uuid.NewString(),
-			Status:   StatusStarted,
-			MaxRetry: t.opts.MaxRetries,
-			Schedule: t.opts.Schedule,
-			Queue:    t.opts.Queue,
-		},
-		Job: t,
+		Meta: meta,
+		Job:  t,
 	}
 }
 
@@ -102,8 +117,12 @@ func (t *Job) message() JobMessage {
 // 2. Sets the job status as "started" on the results store.
 // 3. Enqueues the job (if the job is scheduled, pushes it onto the scheduler)
 func (s *Server) Enqueue(ctx context.Context, t Job) (string, error) {
+	return s.enqueueWithMeta(ctx, t, DefaultMeta(t.opts))
+}
+
+func (s *Server) enqueueWithMeta(ctx context.Context, t Job, meta Meta) (string, error) {
 	var (
-		msg = t.message()
+		msg = t.message(meta)
 	)
 
 	// Set job status in the results backend.

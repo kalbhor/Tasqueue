@@ -204,7 +204,12 @@ func (s *Server) execJob(ctx context.Context, msg JobMessage, task Task) error {
 
 	// If the task contains OnSuccess task (part of a chain), enqueue them.
 	if msg.Job.OnSuccess != nil {
-		msg.OnSuccessUUID, err = s.Enqueue(ctx, *msg.Job.OnSuccess)
+		// Extract OnSuccessJob into a variable to get opts.
+		j := msg.Job.OnSuccess
+		nj := *j
+		meta := DefaultMeta(nj.opts)
+		meta.PrevJobResults = taskCtx.results
+		msg.OnSuccessUUID, err = s.enqueueWithMeta(ctx, nj, meta)
 		if err != nil {
 			return err
 		}
@@ -215,7 +220,6 @@ func (s *Server) execJob(ctx context.Context, msg JobMessage, task Task) error {
 
 // retryJob() increments the retried count and re-queues the task message.
 func (s *Server) retryJob(ctx context.Context, msg JobMessage) error {
-
 	msg.Retried += 1
 	b, err := msgpack.Marshal(msg)
 	if err != nil {
