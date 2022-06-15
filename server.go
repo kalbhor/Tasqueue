@@ -105,7 +105,6 @@ func (s *Server) GetResult(ctx context.Context, uuid string) ([]byte, error) {
 // Start() starts the job consumer and processor. It is a blocking function.
 func (s *Server) Start(ctx context.Context) {
 	go s.cron.Start()
-	// go s.consume(ctx, work, s.opts.Queue)
 	// Loop over each registered task.
 	s.p.RLock()
 	tasks := s.tasks
