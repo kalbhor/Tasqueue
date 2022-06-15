@@ -10,18 +10,18 @@ import (
 	"time"
 
 	"github.com/kalbhor/tasqueue"
-	redis_broker "github.com/kalbhor/tasqueue/brokers/redis"
+	rb "github.com/kalbhor/tasqueue/brokers/redis"
 	"github.com/kalbhor/tasqueue/examples/tasks"
-	redis_results "github.com/kalbhor/tasqueue/results/redis"
+	rr "github.com/kalbhor/tasqueue/results/redis"
 )
 
 func main() {
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
-	srv, err := tasqueue.NewServer(redis_broker.New(redis_broker.Options{
+	srv, err := tasqueue.NewServer(rb.New(rb.Options{
 		Addrs:    []string{"127.0.0.1:6379"},
 		Password: "",
 		DB:       0,
-	}), redis_results.New(redis_results.Options{
+	}), rr.New(rr.Options{
 		Addrs:    []string{"127.0.0.1:6379"},
 		Password: "",
 		DB:       0,

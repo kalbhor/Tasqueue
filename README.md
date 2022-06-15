@@ -66,17 +66,17 @@ import (
 	"log"
 
 	"github.com/kalbhor/tasqueue"
-	redis_broker "github.com/kalbhor/tasqueue/brokers/redis"
-	redis_results "github.com/kalbhor/tasqueue/results/redis"
+	rb "github.com/kalbhor/tasqueue/brokers/redis"
+	rr "github.com/kalbhor/tasqueue/results/redis"
 )
 
 func main() {
-	broker := redis_broker.New(redis_broker.Options{
+	broker := rb.New(rb.Options{
 		Addrs:    []string{"127.0.0.1:6379"},
 		Password: "",
 		DB:       0,
 	})
-	results := redis_results.New(redis_results.Options{
+	results := rr.New(rr.Options{
 		Addrs:    []string{"127.0.0.1:6379"},
 		Password: "",
 		DB:       0,
