@@ -95,7 +95,7 @@ func (r *MockBroker) Consume(ctx context.Context, work chan []byte, _ string) {
 	}
 }
 
-func (r *MockBroker) Enqueue(_ context.Context, msg []byte, queue string) error {
+func (r *MockBroker) Enqueue(_ context.Context, msg []byte, _ string) error {
 	r.data <- msg
 	return nil
 }
