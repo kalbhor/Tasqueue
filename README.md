@@ -37,7 +37,7 @@
 ## Concepts
 
 - `tasqueue.Broker` is a generic interface to enqueue and consume messages from a single queue. Currently supported brokers are
-  [redis](./brokers/redis/) and [nats-jetstream](./brokers/nats-js/).
+  [redis](./brokers/redis/) and [nats-jetstream](./brokers/nats-js/). Note: It is important for the broker (or your enqueue, consume implementation) to guarantee atomicity. ie : Tasqueue does not provide locking capabilities to ensure unique job consumption.
 - `tasqueue.Results` is a generic interface to store the status and results of jobs. Currently supported result stores are
   [redis](./results/redis/) and [nats-jetstream](./results/nats-js/).
 - `tasqueue.Task` is a pre-registered job handler. It stores a handler functions which is called to process a job. It also stores callbacks (if set through options), executed during different states of a job.
