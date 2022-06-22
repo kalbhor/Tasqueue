@@ -29,6 +29,7 @@ type Job struct {
 
 // JobOpts holds the various options available to configure a job.
 type JobOpts struct {
+	TTL        time.Duration
 	Queue      string
 	MaxRetries uint32
 	Schedule   string
@@ -45,6 +46,7 @@ type Meta struct {
 	Retried       uint32
 	PrevErr       string
 	ProcessedAt   time.Time
+	ExpiresAt     time.Time
 
 	// PrevJobResults contains any job results set by a previous job in a chain.
 	// This will be nil if the previous job doesn't set the results on JobCtx.
@@ -54,11 +56,12 @@ type Meta struct {
 // DefaultMeta returns Meta with a UUID and other defaults filled in.
 func DefaultMeta(opts JobOpts) Meta {
 	return Meta{
-		UUID:     uuid.NewString(),
-		Status:   StatusStarted,
-		MaxRetry: opts.MaxRetries,
-		Schedule: opts.Schedule,
-		Queue:    opts.Queue,
+		UUID:      uuid.NewString(),
+		Status:    StatusStarted,
+		MaxRetry:  opts.MaxRetries,
+		Schedule:  opts.Schedule,
+		ExpiresAt: time.Now().Add(opts.TTL),
+		Queue:     opts.Queue,
 	}
 }
 

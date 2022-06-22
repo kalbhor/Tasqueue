@@ -29,6 +29,9 @@ const (
 	// The state when a job errors out and is queued again to be retried.
 	// This state is analogous to statusStarted.
 	StatusRetrying = "retrying"
+
+	// The state when a job has reached its expiry and can no longer be consumed
+	StatusExpired = "expired"
 )
 
 // handler represents a function that can accept arbitrary payload
@@ -237,6 +240,10 @@ func (s *Server) retryJob(ctx context.Context, msg JobMessage) error {
 	}
 
 	return s.broker.Enqueue(ctx, b, msg.Queue)
+}
+
+func (s *Server) checkExpiry() {
+
 }
 
 func (s *Server) registerHandler(name string, t Task) {
