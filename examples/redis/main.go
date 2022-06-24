@@ -25,7 +25,7 @@ func main() {
 		Addrs:    []string{"127.0.0.1:6379"},
 		Password: "",
 		DB:       0,
-	}))
+	}), tasqueue.ServerOpts{})
 	if err != nil {
 		log.Fatal(err)
 	}

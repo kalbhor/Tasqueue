@@ -17,7 +17,7 @@ import (
 
 func main() {
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
-	srv, err := tasqueue.NewServer(rb.New(), rr.New())
+	srv, err := tasqueue.NewServer(rb.New(), rr.New(), tasqueue.ServerOpts{})
 	if err != nil {
 		log.Fatal(err)
 	}

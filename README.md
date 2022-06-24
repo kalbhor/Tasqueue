@@ -49,6 +49,9 @@
 
 A tasqueue server is the main store that holds the broker and the results interfaces. It also acts as a hub to register tasks.
 
+#### Server Options 
+- `traceProvider` : Tasqueue supports open-telemetry to instrument logs and errors. Clients can supply an appropriate trace provider.
+
 #### Usage
 
 ```go
@@ -75,7 +78,7 @@ func main() {
 	})
 
 
-	srv, err := tasqueue.NewServer(broker, results)
+	srv, err := tasqueue.NewServer(broker, results, tasqueue.ServerOpts{})
 	if err != nil {
 		log.Fatal(err)
 	}

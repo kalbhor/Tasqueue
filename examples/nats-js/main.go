@@ -35,7 +35,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	srv, err := tasqueue.NewServer(brkr, res)
+	srv, err := tasqueue.NewServer(brkr, res, tasqueue.ServerOpts{})
 	if err != nil {
 		log.Fatal(err)
 	}

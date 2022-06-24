@@ -13,7 +13,7 @@ const (
 )
 
 func newServer(t *testing.T) *Server {
-	srv, err := NewServer(NewMockBroker(), NewMockResults())
+	srv, err := NewServer(NewMockBroker(), NewMockResults(), ServerOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
