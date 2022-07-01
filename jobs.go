@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/vmihailenco/msgpack/v5"
 	"go.opentelemetry.io/otel"
+	spans "go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -119,8 +120,11 @@ func (s *Server) Enqueue(ctx context.Context, t Job) (string, error) {
 }
 
 func (s *Server) enqueueWithMeta(ctx context.Context, t Job, meta Meta) (string, error) {
-	ctx, span := otel.Tracer(tracer).Start(ctx, "enqueueWithMeta")
-	defer span.End()
+	if s.opts.Tracing {
+		var span spans.Span
+		ctx, span = otel.Tracer(tracer).Start(ctx, "enqueueWithMeta")
+		defer span.End()
+	}
 
 	var (
 		msg = t.message(meta)
@@ -147,8 +151,11 @@ func (s *Server) enqueueWithMeta(ctx context.Context, t Job, meta Meta) (string,
 }
 
 func (s *Server) enqueueScheduled(ctx context.Context, msg JobMessage) error {
-	ctx, span := otel.Tracer(tracer).Start(ctx, "enqueueScheduled")
-	defer span.End()
+	if s.opts.Tracing {
+		var span spans.Span
+		ctx, span = otel.Tracer(tracer).Start(ctx, "enqueueScheduled")
+		defer span.End()
+	}
 
 	schJob := newScheduled(ctx, s.log, s.broker, msg)
 	// TODO: maintain a map of scheduled cron tasks
@@ -160,8 +167,11 @@ func (s *Server) enqueueScheduled(ctx context.Context, msg JobMessage) error {
 }
 
 func (s *Server) enqueueMessage(ctx context.Context, msg JobMessage) error {
-	ctx, span := otel.Tracer(tracer).Start(ctx, "enqueueMessage")
-	defer span.End()
+	if s.opts.Tracing {
+		var span spans.Span
+		ctx, span = otel.Tracer(tracer).Start(ctx, "enqueueMessage")
+		defer span.End()
+	}
 
 	b, err := msgpack.Marshal(msg)
 	if err != nil {
@@ -172,8 +182,11 @@ func (s *Server) enqueueMessage(ctx context.Context, msg JobMessage) error {
 }
 
 func (s *Server) setJobMessage(ctx context.Context, t JobMessage) error {
-	ctx, span := otel.Tracer(tracer).Start(ctx, "setJobMessage")
-	defer span.End()
+	if s.opts.Tracing {
+		var span spans.Span
+		ctx, span = otel.Tracer(tracer).Start(ctx, "setJobMessage")
+		defer span.End()
+	}
 
 	b, err := json.Marshal(t)
 	if err != nil {

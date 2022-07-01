@@ -11,6 +11,7 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/sdk/trace"
+	spans "go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -77,6 +78,7 @@ func (s *Server) RegisterTask(name string, fn handler, opts TaskOpts) {
 // Server is the main store that holds the broker and the results communication interfaces.
 // It also stores the registered tasks.
 type Server struct {
+	opts    ServerOpts
 	log     *logrus.Logger
 	broker  Broker
 	results Results
@@ -88,16 +90,22 @@ type Server struct {
 
 // ServerOpts are curated options for the server
 type ServerOpts struct {
-	traceProvider *trace.TracerProvider
+	Tracing       bool
+	TraceProvider *trace.TracerProvider
 }
 
 // NewServer() returns a new instance of server, with sane defaults.
 func NewServer(b Broker, r Results, opts ServerOpts) (*Server, error) {
-	if opts.traceProvider != nil {
-		otel.SetTracerProvider(opts.traceProvider)
+	if opts.Tracing {
+		if opts.TraceProvider == nil {
+			return nil, fmt.Errorf("require a trace provider, if tracing enabled")
+		} else {
+			otel.SetTracerProvider(opts.TraceProvider)
+		}
 	}
 
 	return &Server{
+		opts:    opts,
 		log:     logrus.New(),
 		cron:    cron.New(),
 		broker:  b,
@@ -126,8 +134,11 @@ func (s *Server) Start(ctx context.Context) {
 
 	var wg sync.WaitGroup
 	for _, task := range tasks {
-		ctx, span := otel.Tracer(tracer).Start(ctx, "Start")
-		defer span.End()
+		if s.opts.Tracing {
+			var span spans.Span
+			ctx, span = otel.Tracer(tracer).Start(ctx, "Start")
+			defer span.End()
+		}
 
 		task := task
 		work := make(chan []byte)
@@ -150,8 +161,11 @@ func (s *Server) Start(ctx context.Context) {
 
 // consume() listens on the queue for task messages and passes the task to processor.
 func (s *Server) consume(ctx context.Context, work chan []byte, queue string) {
-	ctx, span := otel.Tracer(tracer).Start(ctx, "consume")
-	defer span.End()
+	if s.opts.Tracing {
+		var span spans.Span
+		ctx, span = otel.Tracer(tracer).Start(ctx, "consume")
+		defer span.End()
+	}
 
 	s.log.Info("starting task consumer..")
 	s.broker.Consume(ctx, work, queue)
@@ -162,8 +176,11 @@ func (s *Server) consume(ctx context.Context, work chan []byte, queue string) {
 func (s *Server) process(ctx context.Context, w chan []byte) {
 	s.log.Info("starting processor..")
 	for {
-		ctx, span := otel.Tracer(tracer).Start(ctx, "process")
-		defer span.End()
+		if s.opts.Tracing {
+			var span spans.Span
+			ctx, span = otel.Tracer(tracer).Start(ctx, "process")
+			defer span.End()
+		}
 
 		select {
 		case <-ctx.Done():
@@ -200,8 +217,11 @@ func (s *Server) process(ctx context.Context, w chan []byte) {
 }
 
 func (s *Server) execJob(ctx context.Context, msg JobMessage, task Task) error {
-	ctx, span := otel.Tracer(tracer).Start(ctx, "execJob")
-	defer span.End()
+	if s.opts.Tracing {
+		var span spans.Span
+		ctx, span = otel.Tracer(tracer).Start(ctx, "execJob")
+		defer span.End()
+	}
 	// Create the task context, which will be passed to the handler.
 	// TODO: maybe use sync.Pool
 	taskCtx := JobCtx{Meta: msg.Meta, store: s.results}
@@ -251,8 +271,11 @@ func (s *Server) execJob(ctx context.Context, msg JobMessage, task Task) error {
 
 // retryJob() increments the retried count and re-queues the task message.
 func (s *Server) retryJob(ctx context.Context, msg JobMessage) error {
-	ctx, span := otel.Tracer(tracer).Start(ctx, "retryJob")
-	defer span.End()
+	if s.opts.Tracing {
+		var span spans.Span
+		ctx, span = otel.Tracer(tracer).Start(ctx, "retryJob")
+		defer span.End()
+	}
 
 	msg.Retried += 1
 	b, err := msgpack.Marshal(msg)
@@ -292,8 +315,11 @@ func (s *Server) statusStarted(ctx context.Context, t JobMessage) error {
 }
 
 func (s *Server) statusProcessing(ctx context.Context, t JobMessage) error {
-	ctx, span := otel.Tracer(tracer).Start(ctx, "statusProcessing")
-	defer span.End()
+	if s.opts.Tracing {
+		var span spans.Span
+		ctx, span = otel.Tracer(tracer).Start(ctx, "statusProcessing")
+		defer span.End()
+	}
 
 	t.ProcessedAt = time.Now()
 	t.Status = StatusProcessing
@@ -302,8 +328,11 @@ func (s *Server) statusProcessing(ctx context.Context, t JobMessage) error {
 }
 
 func (s *Server) statusDone(ctx context.Context, t JobMessage) error {
-	ctx, span := otel.Tracer(tracer).Start(ctx, "statusDone")
-	defer span.End()
+	if s.opts.Tracing {
+		var span spans.Span
+		ctx, span = otel.Tracer(tracer).Start(ctx, "statusDone")
+		defer span.End()
+	}
 
 	t.ProcessedAt = time.Now()
 	t.Status = StatusDone
@@ -312,8 +341,11 @@ func (s *Server) statusDone(ctx context.Context, t JobMessage) error {
 }
 
 func (s *Server) statusFailed(ctx context.Context, t JobMessage) error {
-	ctx, span := otel.Tracer(tracer).Start(ctx, "statusFailed")
-	defer span.End()
+	if s.opts.Tracing {
+		var span spans.Span
+		ctx, span = otel.Tracer(tracer).Start(ctx, "statusFailed")
+		defer span.End()
+	}
 
 	t.ProcessedAt = time.Now()
 	t.Status = StatusFailed
@@ -322,8 +354,11 @@ func (s *Server) statusFailed(ctx context.Context, t JobMessage) error {
 }
 
 func (s *Server) statusRetrying(ctx context.Context, t JobMessage) error {
-	ctx, span := otel.Tracer(tracer).Start(ctx, "statusRetrying")
-	defer span.End()
+	if s.opts.Tracing {
+		var span spans.Span
+		ctx, span = otel.Tracer(tracer).Start(ctx, "statusRetrying")
+		defer span.End()
+	}
 
 	t.ProcessedAt = time.Now()
 	t.Status = StatusRetrying

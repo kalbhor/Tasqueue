@@ -50,7 +50,17 @@
 A tasqueue server is the main store that holds the broker and the results interfaces. It also acts as a hub to register tasks.
 
 #### Server Options 
-- `traceProvider` : Tasqueue supports open-telemetry to instrument logs and errors. Clients can supply an appropriate trace provider.
+
+- Tasqueue supports open-telemetry to instrument logs and errors. Clients can supply an appropriate trace provider.
+
+```go
+// ServerOpts are curated options for the server
+type ServerOpts struct {
+	// If tracing is enabled, a trace provider is required.
+	Tracing       bool
+	TraceProvider *trace.TracerProvider
+}
+```
 
 #### Usage
 
