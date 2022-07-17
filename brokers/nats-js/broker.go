@@ -21,14 +21,12 @@ type Options struct {
 	Username    string
 	Password    string
 
-	Logger logf.Logger
-
 	// Stream -> Subjects map
 	Streams map[string][]string
 }
 
 // New() returns a new instance of nats-jetstream broker.
-func New(cfg Options) (*Broker, error) {
+func New(cfg Options, lo logf.Logger) (*Broker, error) {
 	opt := []nats.Option{}
 
 	if cfg.EnabledAuth {
@@ -59,7 +57,7 @@ func New(cfg Options) (*Broker, error) {
 	return &Broker{
 		opt:  cfg,
 		conn: js,
-		log:  cfg.Logger,
+		log:  lo,
 	}, nil
 }
 

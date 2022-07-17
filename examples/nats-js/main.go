@@ -17,13 +17,14 @@ import (
 
 func main() {
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
+	lo := logf.New(logf.Opts{})
 	brkr, err := nats_broker.New(nats_broker.Options{
 		URL:         "localhost:4222",
 		EnabledAuth: false,
 		Streams: map[string][]string{
 			"default": {tasqueue.DefaultQueue},
 		},
-	})
+	}, lo)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -31,7 +32,7 @@ func main() {
 	res, err := nats_result.New(nats_result.Options{
 		URL:         "localhost:4222",
 		EnabledAuth: false,
-	})
+	}, lo)
 	if err != nil {
 		log.Fatal(err)
 	}

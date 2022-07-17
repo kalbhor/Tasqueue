@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nats-io/nats.go"
+	"github.com/zerodha/logf"
 )
 
 const (
@@ -14,6 +15,7 @@ const (
 
 type Results struct {
 	opt  Options
+	lo   logf.Logger
 	conn nats.KeyValue
 }
 
@@ -25,7 +27,7 @@ type Options struct {
 }
 
 // New() returns a new instance of nats-jetstream broker.
-func New(cfg Options) (*Results, error) {
+func New(cfg Options, lo logf.Logger) (*Results, error) {
 	opt := []nats.Option{}
 
 	if cfg.EnabledAuth {
@@ -50,6 +52,7 @@ func New(cfg Options) (*Results, error) {
 
 	return &Results{
 		opt:  cfg,
+		lo:   lo,
 		conn: kv,
 	}, nil
 }

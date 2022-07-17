@@ -18,7 +18,6 @@ type Options struct {
 	Addrs    []string
 	Password string
 	DB       int
-	Logger   logf.Logger
 }
 
 type Broker struct {
@@ -26,9 +25,9 @@ type Broker struct {
 	conn redis.UniversalClient
 }
 
-func New(o Options) *Broker {
+func New(o Options, lo logf.Logger) *Broker {
 	return &Broker{
-		log: o.Logger,
+		log: lo,
 		conn: redis.NewClient(
 			&redis.Options{
 				Addr:     o.Addrs[0],

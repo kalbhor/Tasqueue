@@ -18,16 +18,16 @@ import (
 
 func main() {
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
+	lo := logf.New(logf.Opts{})
 	srv, err := tasqueue.NewServer(rb.New(rb.Options{
 		Addrs:    []string{"127.0.0.1:6379"},
 		Password: "",
 		DB:       0,
-		Logger:   logf.New(logf.Opts{}),
-	}), rr.New(rr.Options{
+	}, lo), rr.New(rr.Options{
 		Addrs:    []string{"127.0.0.1:6379"},
 		Password: "",
 		DB:       0,
-	}), logf.New(logf.Opts{}))
+	}, lo), lo)
 	if err != nil {
 		log.Fatal(err)
 	}
