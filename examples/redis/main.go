@@ -13,6 +13,7 @@ import (
 	rb "github.com/kalbhor/tasqueue/brokers/redis"
 	"github.com/kalbhor/tasqueue/examples/tasks"
 	rr "github.com/kalbhor/tasqueue/results/redis"
+	"github.com/zerodha/logf"
 )
 
 func main() {
@@ -21,11 +22,12 @@ func main() {
 		Addrs:    []string{"127.0.0.1:6379"},
 		Password: "",
 		DB:       0,
+		Logger:   logf.New(logf.Opts{}),
 	}), rr.New(rr.Options{
 		Addrs:    []string{"127.0.0.1:6379"},
 		Password: "",
 		DB:       0,
-	}))
+	}), logf.New(logf.Opts{}))
 	if err != nil {
 		log.Fatal(err)
 	}

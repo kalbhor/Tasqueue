@@ -12,6 +12,7 @@ import (
 	nats_broker "github.com/kalbhor/tasqueue/brokers/nats-js"
 	"github.com/kalbhor/tasqueue/examples/tasks"
 	nats_result "github.com/kalbhor/tasqueue/results/nats-js"
+	"github.com/zerodha/logf"
 )
 
 func main() {
@@ -35,7 +36,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	srv, err := tasqueue.NewServer(brkr, res)
+	srv, err := tasqueue.NewServer(brkr, res, logf.New(logf.Opts{}))
 	if err != nil {
 		log.Fatal(err)
 	}

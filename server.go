@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/robfig/cron/v3"
-	"github.com/sirupsen/logrus"
 	"github.com/vmihailenco/msgpack/v5"
+	"github.com/zerodha/logf"
 )
 
 const (
@@ -57,7 +57,7 @@ type TaskOpts struct {
 // RegisterTask maps a new task against the tasks map on the server.
 // It accepts different options for the task (to set callbacks).
 func (s *Server) RegisterTask(name string, fn handler, opts TaskOpts) {
-	s.log.Infof("added handler: %s", name)
+	s.log.Debug("added handler", "name", name)
 
 	if opts.Concurrency <= 0 {
 		opts.Concurrency = defaultConcurrency
@@ -72,7 +72,7 @@ func (s *Server) RegisterTask(name string, fn handler, opts TaskOpts) {
 // Server is the main store that holds the broker and the results communication interfaces.
 // It also stores the registered tasks.
 type Server struct {
-	log     *logrus.Logger
+	log     logf.Logger
 	broker  Broker
 	results Results
 	cron    *cron.Cron
@@ -82,9 +82,9 @@ type Server struct {
 }
 
 // NewServer() returns a new instance of server, with sane defaults.
-func NewServer(b Broker, r Results) (*Server, error) {
+func NewServer(b Broker, r Results, logger logf.Logger) (*Server, error) {
 	return &Server{
-		log:     logrus.New(),
+		log:     logger,
 		cron:    cron.New(),
 		broker:  b,
 		results: r,
@@ -133,18 +133,18 @@ func (s *Server) Start(ctx context.Context) {
 
 // consume() listens on the queue for task messages and passes the task to processor.
 func (s *Server) consume(ctx context.Context, work chan []byte, queue string) {
-	s.log.Info("starting task consumer..")
+	s.log.Debug("starting task consumer..")
 	s.broker.Consume(ctx, work, queue)
 }
 
 // process() listens on the work channel for tasks. On receiving a task it checks the
 // processors map and passes payload to relevant processor.
 func (s *Server) process(ctx context.Context, w chan []byte) {
-	s.log.Info("starting processor..")
+	s.log.Debug("starting processor..")
 	for {
 		select {
 		case <-ctx.Done():
-			s.log.Info("shutting down processor..")
+			s.log.Debug("shutting down processor..")
 			return
 		case work := <-w:
 			var (
@@ -153,24 +153,24 @@ func (s *Server) process(ctx context.Context, w chan []byte) {
 			)
 			// Decode the bytes into a job message
 			if err = msgpack.Unmarshal(work, &msg); err != nil {
-				s.log.Errorf("error unmarshalling task : %v", err)
+				s.log.Error("error unmarshalling task", "error", err)
 				break
 			}
 			// Fetch the registered task handler.
 			task, err := s.getHandler(msg.Job.Task)
 			if err != nil {
-				s.log.Errorf("handler not found : %v", err)
+				s.log.Error("handler not found", "error", err)
 				break
 			}
 
 			// Set the job status as being "processed"
 			if err := s.statusProcessing(ctx, msg); err != nil {
-				s.log.Error(err)
+				s.log.Error("error setting the status to processing", "error", err)
 				break
 			}
 
 			if err := s.execJob(ctx, msg, task); err != nil {
-				s.log.Errorf("could not execute job. err : %v", err)
+				s.log.Error("could not execute job. err", "error", err)
 			}
 		}
 	}

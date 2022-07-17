@@ -176,7 +176,7 @@ func (s *Server) setJobMessage(ctx context.Context, t JobMessage) error {
 // GetJob() accepts a UUID and returns the job message in the results store.
 // This is useful to check the status of a job message.
 func (s *Server) GetJob(ctx context.Context, uuid string) (JobMessage, error) {
-	s.log.Infof("getting job : %s", uuid)
+	s.log.Debug("getting job", "job", uuid)
 
 	b, err := s.results.Get(ctx, uuid)
 	if err != nil {
