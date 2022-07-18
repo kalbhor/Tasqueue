@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/zerodha/logf"
 )
 
 const (
@@ -13,6 +14,7 @@ const (
 
 type Results struct {
 	opt  Options
+	lo   logf.Logger
 	conn redis.UniversalClient
 }
 
@@ -30,7 +32,7 @@ func DefaultRedis() Options {
 	}
 }
 
-func New(o Options) *Results {
+func New(o Options, lo logf.Logger) *Results {
 	return &Results{
 		opt: o,
 		conn: redis.NewClient(
@@ -40,10 +42,12 @@ func New(o Options) *Results {
 				DB:       o.DB,
 			},
 		),
+		lo: lo,
 	}
 }
 
 func (r *Results) Get(ctx context.Context, uuid string) ([]byte, error) {
+	r.lo.Debug("getting result for job", "uuid", uuid)
 	rs, err := r.conn.Get(ctx, resultPrefix+uuid).Result()
 	if err != nil {
 		return nil, err
@@ -53,5 +57,6 @@ func (r *Results) Get(ctx context.Context, uuid string) ([]byte, error) {
 }
 
 func (r *Results) Set(ctx context.Context, uuid string, b []byte) error {
+	r.lo.Debug("setting result for job", "uuid", uuid)
 	return r.conn.Set(ctx, resultPrefix+uuid, b, defaultExpiry).Err()
 }

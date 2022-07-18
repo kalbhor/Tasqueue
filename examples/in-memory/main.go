@@ -13,11 +13,12 @@ import (
 	rb "github.com/kalbhor/tasqueue/brokers/in-memory"
 	"github.com/kalbhor/tasqueue/examples/tasks"
 	rr "github.com/kalbhor/tasqueue/results/in-memory"
+	"github.com/zerodha/logf"
 )
 
 func main() {
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
-	srv, err := tasqueue.NewServer(rb.New(), rr.New())
+	srv, err := tasqueue.NewServer(rb.New(), rr.New(), logf.New(logf.Opts{}))
 	if err != nil {
 		log.Fatal(err)
 	}
