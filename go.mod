@@ -8,7 +8,7 @@ require (
 	github.com/nats-io/nats.go v1.15.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/vmihailenco/msgpack/v5 v5.3.5
-	github.com/zerodha/logf v0.5.4
+	github.com/zerodha/logf v0.5.5
 )
 
 require (
