@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/zerodha/logf"
@@ -19,9 +20,14 @@ type Results struct {
 }
 
 type Options struct {
-	Addrs    []string
-	Password string
-	DB       int
+	Addrs        []string
+	Password     string
+	DB           int
+	DialTimeout  time.Duration
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+	IdleTimeout  time.Duration
+	MinIdleConns int
 }
 
 func DefaultRedis() Options {
@@ -35,11 +41,16 @@ func DefaultRedis() Options {
 func New(o Options, lo logf.Logger) *Results {
 	return &Results{
 		opt: o,
-		conn: redis.NewClient(
-			&redis.Options{
-				Addr:     o.Addrs[0],
-				Password: o.Password,
-				DB:       o.DB,
+		conn: redis.NewUniversalClient(
+			&redis.UniversalOptions{
+				Addrs:        o.Addrs,
+				Password:     o.Password,
+				DB:           o.DB,
+				DialTimeout:  o.DialTimeout,
+				ReadTimeout:  o.ReadTimeout,
+				WriteTimeout: o.WriteTimeout,
+				IdleTimeout:  o.IdleTimeout,
+				MinIdleConns: o.MinIdleConns,
 			},
 		),
 		lo: lo,
