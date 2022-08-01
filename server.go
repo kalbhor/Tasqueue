@@ -102,6 +102,16 @@ func (s *Server) GetResult(ctx context.Context, uuid string) ([]byte, error) {
 	return b, nil
 }
 
+// GetFailed() returns the list of uuid's of jobs that failed.
+func (s *Server) GetFailed(ctx context.Context) ([]string, error) {
+	return s.results.GetFailed(ctx)
+}
+
+// GetSuccess() returns the list of uuid's of jobs that were successful.
+func (s *Server) GetSuccess(ctx context.Context) ([]string, error) {
+	return s.results.GetSuccess(ctx)
+}
+
 // Start() starts the job consumer and processor. It is a blocking function.
 func (s *Server) Start(ctx context.Context) {
 	go s.cron.Start()
@@ -274,12 +284,20 @@ func (s *Server) statusDone(ctx context.Context, t JobMessage) error {
 	t.ProcessedAt = time.Now()
 	t.Status = StatusDone
 
+	if err := s.results.SetSuccess(ctx, t.UUID); err != nil {
+		return err
+	}
+
 	return s.setJobMessage(ctx, t)
 }
 
 func (s *Server) statusFailed(ctx context.Context, t JobMessage) error {
 	t.ProcessedAt = time.Now()
 	t.Status = StatusFailed
+
+	if err := s.results.SetFailed(ctx, t.UUID); err != nil {
+		return err
+	}
 
 	return s.setJobMessage(ctx, t)
 }

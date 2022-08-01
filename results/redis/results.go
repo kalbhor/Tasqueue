@@ -11,6 +11,10 @@ import (
 const (
 	defaultExpiry = 0
 	resultPrefix  = "tasqueue:results:"
+
+	// Suffix for hashmaps storing success/failed job uuid's
+	success = "success"
+	failed  = "failed"
 )
 
 type Results struct {
@@ -57,6 +61,51 @@ func New(o Options, lo logf.Logger) *Results {
 	}
 }
 
+func (r *Results) GetSuccess(ctx context.Context) ([]string, error) {
+	r.lo.Debug("getting successful jobs")
+	rs, err := r.conn.LRange(ctx, resultPrefix+success, 0, -1).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	return rs, nil
+}
+
+func (r *Results) GetFailed(ctx context.Context) ([]string, error) {
+	r.lo.Debug("getting failed jobs")
+	rs, err := r.conn.LRange(ctx, resultPrefix+failed, 0, -1).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	return rs, nil
+}
+
+func (r *Results) SetSuccess(ctx context.Context, uuid string) error {
+	r.lo.Debug("setting job as successful")
+	_, err := r.conn.RPush(ctx, resultPrefix+success, uuid).Result()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *Results) SetFailed(ctx context.Context, uuid string) error {
+	r.lo.Debug("setting job as failed")
+	_, err := r.conn.RPush(ctx, resultPrefix+failed, uuid).Result()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *Results) Set(ctx context.Context, uuid string, b []byte) error {
+	r.lo.Debug("setting result for job", "uuid", uuid)
+	return r.conn.Set(ctx, resultPrefix+uuid, b, defaultExpiry).Err()
+}
+
 func (r *Results) Get(ctx context.Context, uuid string) ([]byte, error) {
 	r.lo.Debug("getting result for job", "uuid", uuid)
 	rs, err := r.conn.Get(ctx, resultPrefix+uuid).Result()
@@ -65,9 +114,4 @@ func (r *Results) Get(ctx context.Context, uuid string) ([]byte, error) {
 	}
 
 	return []byte(rs), nil
-}
-
-func (r *Results) Set(ctx context.Context, uuid string, b []byte) error {
-	r.lo.Debug("setting result for job", "uuid", uuid)
-	return r.conn.Set(ctx, resultPrefix+uuid, b, defaultExpiry).Err()
 }
