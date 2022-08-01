@@ -72,3 +72,18 @@ func (r *Results) Set(_ context.Context, uuid string, b []byte) error {
 	}
 	return nil
 }
+func (r *Results) SetSuccess(_ context.Context, uuid string) error {
+	return fmt.Errorf("method not implemented")
+}
+
+func (r *Results) SetFailed(_ context.Context, uuid string) error {
+	return fmt.Errorf("method not implemented")
+}
+
+func (r *Results) GetSuccess(_ context.Context) ([]string, error) {
+	return nil, fmt.Errorf("method not implemented")
+}
+
+func (r *Results) GetFailed(_ context.Context) ([]string, error) {
+	return nil, fmt.Errorf("method not implemented")
+}

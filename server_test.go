@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/zerodha/logf"
+
+	rr "github.com/kalbhor/tasqueue/results/in-memory"
 )
 
 const (
@@ -51,10 +53,8 @@ type MockResults struct {
 	store map[string][]byte
 }
 
-func NewMockResults() *MockResults {
-	return &MockResults{
-		store: make(map[string][]byte),
-	}
+func NewMockResults() *rr.Results {
+	return rr.New()
 }
 
 func (r *MockResults) Get(_ context.Context, uuid string) ([]byte, error) {
