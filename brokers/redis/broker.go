@@ -7,34 +7,49 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/sirupsen/logrus"
+	"github.com/zerodha/logf"
 )
 
 const (
-	pollPeriod = time.Second
+	DefaultPollPeriod = time.Second
 )
 
 type Options struct {
-	Addrs    []string
-	Password string
-	DB       int
+	Addrs        []string
+	Password     string
+	DB           int
+	DialTimeout  time.Duration
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+	IdleTimeout  time.Duration
+	MinIdleConns int
+	PollPeriod   time.Duration
 }
 
 type Broker struct {
-	log  *logrus.Logger
-	conn redis.UniversalClient
+	log        logf.Logger
+	conn       redis.UniversalClient
+	pollPeriod time.Duration
 }
 
-func New(o Options) *Broker {
+func New(o Options, lo logf.Logger) *Broker {
+	pollPeriod := o.PollPeriod
+	if o.PollPeriod == 0 {
+		pollPeriod = DefaultPollPeriod
+	}
 	return &Broker{
-		log: logrus.New(),
-		conn: redis.NewClient(
-			&redis.Options{
-				Addr:     o.Addrs[0],
-				Password: o.Password,
-				DB:       o.DB,
-			},
-		),
+		log: lo,
+		conn: redis.NewUniversalClient(&redis.UniversalOptions{
+			Addrs:        o.Addrs,
+			DB:           o.DB,
+			Password:     o.Password,
+			DialTimeout:  o.DialTimeout,
+			ReadTimeout:  o.ReadTimeout,
+			WriteTimeout: o.WriteTimeout,
+			MinIdleConns: o.MinIdleConns,
+			IdleTimeout:  o.IdleTimeout,
+		}),
+		pollPeriod: pollPeriod,
 	}
 }
 
@@ -46,19 +61,19 @@ func (b *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
 	for {
 		select {
 		case <-ctx.Done():
-			b.log.Info("shutting down consumer..")
+			b.log.Debug("shutting down consumer..")
 			return
 		default:
-			b.log.Info("receiving from consumer..")
-			res, err := b.conn.BLPop(ctx, pollPeriod, queue).Result()
+			b.log.Debug("receiving from consumer..")
+			res, err := b.conn.BLPop(ctx, b.pollPeriod, queue).Result()
 			if err != nil && err.Error() != "redis: nil" {
 				b.log.Error("error consuming from redis queue", err)
 			} else if errors.Is(err, redis.Nil) {
-				b.log.Info(queue + ": no tasks to consume..")
+				b.log.Debug("no tasks to consume..", "queue", queue)
 			} else {
 				msg, err := blpopResult(res)
 				if err != nil {
-					b.log.Error("error parsing response from redis", err)
+					b.log.Error("error parsing response from redis", "error", err)
 					return
 				}
 				work <- []byte(msg)

@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"github.com/nats-io/nats.go"
-	"github.com/sirupsen/logrus"
+	"github.com/zerodha/logf"
 )
 
 // Broker is a nats-jetstream based broker implementation.
 type Broker struct {
 	opt  Options
-	log  *logrus.Logger
+	log  logf.Logger
 	conn nats.JetStreamContext
 }
 
@@ -26,7 +26,7 @@ type Options struct {
 }
 
 // New() returns a new instance of nats-jetstream broker.
-func New(cfg Options) (*Broker, error) {
+func New(cfg Options, lo logf.Logger) (*Broker, error) {
 	opt := []nats.Option{}
 
 	if cfg.EnabledAuth {
@@ -57,7 +57,7 @@ func New(cfg Options) (*Broker, error) {
 	return &Broker{
 		opt:  cfg,
 		conn: js,
-		log:  logrus.New(),
+		log:  lo,
 	}, nil
 }
 
@@ -104,5 +104,5 @@ func (b *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
 	}
 
 	<-ctx.Done()
-	b.log.Info("shutting down consumer..")
+	b.log.Debug("shutting down consumer..")
 }

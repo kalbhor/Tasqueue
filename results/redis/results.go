@@ -2,8 +2,10 @@ package redis
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/zerodha/logf"
 )
 
 const (
@@ -13,13 +15,19 @@ const (
 
 type Results struct {
 	opt  Options
+	lo   logf.Logger
 	conn redis.UniversalClient
 }
 
 type Options struct {
-	Addrs    []string
-	Password string
-	DB       int
+	Addrs        []string
+	Password     string
+	DB           int
+	DialTimeout  time.Duration
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+	IdleTimeout  time.Duration
+	MinIdleConns int
 }
 
 func DefaultRedis() Options {
@@ -30,20 +38,27 @@ func DefaultRedis() Options {
 	}
 }
 
-func New(o Options) *Results {
+func New(o Options, lo logf.Logger) *Results {
 	return &Results{
 		opt: o,
-		conn: redis.NewClient(
-			&redis.Options{
-				Addr:     o.Addrs[0],
-				Password: o.Password,
-				DB:       o.DB,
+		conn: redis.NewUniversalClient(
+			&redis.UniversalOptions{
+				Addrs:        o.Addrs,
+				Password:     o.Password,
+				DB:           o.DB,
+				DialTimeout:  o.DialTimeout,
+				ReadTimeout:  o.ReadTimeout,
+				WriteTimeout: o.WriteTimeout,
+				IdleTimeout:  o.IdleTimeout,
+				MinIdleConns: o.MinIdleConns,
 			},
 		),
+		lo: lo,
 	}
 }
 
 func (r *Results) Get(ctx context.Context, uuid string) ([]byte, error) {
+	r.lo.Debug("getting result for job", "uuid", uuid)
 	rs, err := r.conn.Get(ctx, resultPrefix+uuid).Result()
 	if err != nil {
 		return nil, err
@@ -53,5 +68,6 @@ func (r *Results) Get(ctx context.Context, uuid string) ([]byte, error) {
 }
 
 func (r *Results) Set(ctx context.Context, uuid string, b []byte) error {
+	r.lo.Debug("setting result for job", "uuid", uuid)
 	return r.conn.Set(ctx, resultPrefix+uuid, b, defaultExpiry).Err()
 }

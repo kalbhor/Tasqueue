@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+
+	"github.com/zerodha/logf"
 )
 
 const (
@@ -13,7 +15,10 @@ const (
 )
 
 func newServer(t *testing.T) *Server {
-	srv, err := NewServer(NewMockBroker(), NewMockResults(), ServerOpts{})
+	lo := logf.New(logf.Opts{
+		Level: logf.DebugLevel,
+	})
+	srv, err := NewServer(NewMockBroker(), NewMockResults(), lo)
 	if err != nil {
 		t.Fatal(err)
 	}

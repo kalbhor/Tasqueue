@@ -7,7 +7,7 @@ jobs:
   test:
     strategy:
       matrix:
-        go: [ '1.16', '1.17' ]
+        go: ["1.17", "1.18"]
 
     runs-on: ubuntu-20.04
 
@@ -27,10 +27,9 @@ jobs:
         run: go mod verify
 
       - name: Run Test
-        run: 
-          go test -v ./... -covermode=count -coverprofile=coverage.out
+        run: go test -v ./... -covermode=count -coverprofile=coverage.out
           go tool cover -func=coverage.out -o=coverage.out
-        
+
       - name: Verify Changed files
         uses: tj-actions/verify-changed-files@v8.1
         id: verify-changed-files
