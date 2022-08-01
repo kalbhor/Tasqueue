@@ -7,8 +7,10 @@ import (
 )
 
 type Results struct {
-	mu    sync.Mutex
-	store map[string][]byte
+	mu      sync.Mutex
+	store   map[string][]byte
+	failed  []string
+	success []string
 }
 
 func New() *Results {
@@ -34,4 +36,36 @@ func (r *Results) Set(ctx context.Context, uuid string, b []byte) error {
 	r.mu.Unlock()
 
 	return nil
+}
+
+func (r *Results) SetSuccess(_ context.Context, uuid string) error {
+	r.mu.Lock()
+	r.success = append(r.success, uuid)
+	r.mu.Unlock()
+
+	return nil
+}
+
+func (r *Results) SetFailed(_ context.Context, uuid string) error {
+	r.mu.Lock()
+	r.failed = append(r.success, uuid)
+	r.mu.Unlock()
+
+	return nil
+}
+
+func (r *Results) GetSuccess(_ context.Context) ([]string, error) {
+	r.mu.Lock()
+	succ := r.success
+	r.mu.Unlock()
+
+	return succ, nil
+}
+
+func (r *Results) GetFailed(_ context.Context) ([]string, error) {
+	r.mu.Lock()
+	fail := r.failed
+	r.mu.Unlock()
+
+	return fail, nil
 }

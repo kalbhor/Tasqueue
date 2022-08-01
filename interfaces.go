@@ -5,6 +5,10 @@ import "context"
 type Results interface {
 	Get(ctx context.Context, uuid string) ([]byte, error)
 	Set(ctx context.Context, uuid string, b []byte) error
+	GetFailed(ctx context.Context) ([]string, error)
+	GetSuccess(ctx context.Context) ([]string, error)
+	SetFailed(ctx context.Context, uuid string) error
+	SetSuccess(ctx context.Context, uuid string) error
 }
 
 type Broker interface {
