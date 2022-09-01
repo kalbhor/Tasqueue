@@ -37,7 +37,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	srv, err := tasqueue.NewServer(brkr, res, logf.New(logf.Opts{}))
+	srv, err := tasqueue.NewServer(tasqueue.ServerOpts{
+		Broker:  brkr,
+		Results: res,
+		Logger:  logf.New(logf.Opts{}),
+	})
 	if err != nil {
 		log.Fatal(err)
 	}

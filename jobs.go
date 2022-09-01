@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/vmihailenco/msgpack/v5"
+	"go.opentelemetry.io/otel"
+	spans "go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -118,24 +120,33 @@ func (s *Server) Enqueue(ctx context.Context, t Job) (string, error) {
 }
 
 func (s *Server) enqueueWithMeta(ctx context.Context, t Job, meta Meta) (string, error) {
+	var span spans.Span
+	if s.traceProv != nil {
+		ctx, span = otel.Tracer(tracer).Start(ctx, "enqueue_with_meta")
+		defer span.End()
+	}
+
 	var (
 		msg = t.message(meta)
 	)
 
 	// Set job status in the results backend.
 	if err := s.statusStarted(ctx, msg); err != nil {
+		s.spanError(span, err)
 		return "", err
 	}
 
 	// If a schedule is set, add a cron job.
 	if t.opts.Schedule != "" {
 		if err := s.enqueueScheduled(ctx, msg); err != nil {
+			s.spanError(span, err)
 			return "", err
 		}
 		return msg.UUID, nil
 	}
 
 	if err := s.enqueueMessage(ctx, msg); err != nil {
+		s.spanError(span, err)
 		return "", err
 	}
 
@@ -143,9 +154,16 @@ func (s *Server) enqueueWithMeta(ctx context.Context, t Job, meta Meta) (string,
 }
 
 func (s *Server) enqueueScheduled(ctx context.Context, msg JobMessage) error {
+	var span spans.Span
+	if s.traceProv != nil {
+		ctx, span = otel.Tracer(tracer).Start(ctx, "enqueue_scheduled")
+		defer span.End()
+	}
+
 	schJob := newScheduled(ctx, s.log, s.broker, msg)
 	// TODO: maintain a map of scheduled cron tasks
 	if _, err := s.cron.AddJob(msg.Schedule, schJob); err != nil {
+		s.spanError(span, err)
 		return err
 	}
 
@@ -153,38 +171,64 @@ func (s *Server) enqueueScheduled(ctx context.Context, msg JobMessage) error {
 }
 
 func (s *Server) enqueueMessage(ctx context.Context, msg JobMessage) error {
+	var span spans.Span
+	if s.traceProv != nil {
+		ctx, span = otel.Tracer(tracer).Start(ctx, "enqueue_message")
+		defer span.End()
+	}
+
 	b, err := msgpack.Marshal(msg)
 	if err != nil {
+		s.spanError(span, err)
 		return err
 	}
 
-	return s.broker.Enqueue(ctx, b, msg.Queue)
+	if err := s.broker.Enqueue(ctx, b, msg.Queue); err != nil {
+		s.spanError(span, err)
+		return err
+	}
+
+	return nil
 }
 
 func (s *Server) setJobMessage(ctx context.Context, t JobMessage) error {
+	var span spans.Span
+	if s.traceProv != nil {
+		ctx, span = otel.Tracer(tracer).Start(ctx, "set_job_message")
+		defer span.End()
+	}
+
 	b, err := json.Marshal(t)
 	if err != nil {
+		s.spanError(span, err)
 		return fmt.Errorf("could not set job message in store : %w", err)
 	}
 	if err := s.results.Set(ctx, t.UUID, b); err != nil {
+		s.spanError(span, err)
 		return fmt.Errorf("could not set job message in store : %w", err)
 	}
 
 	return nil
 }
 
-// GetJob() accepts a UUID and returns the job message in the results store.
+// GetJob accepts a UUID and returns the job message in the results store.
 // This is useful to check the status of a job message.
 func (s *Server) GetJob(ctx context.Context, uuid string) (JobMessage, error) {
-	s.log.Debug("getting job", "job", uuid)
+	var span spans.Span
+	if s.traceProv != nil {
+		ctx, span = otel.Tracer(tracer).Start(ctx, "get_job")
+		defer span.End()
+	}
 
 	b, err := s.results.Get(ctx, uuid)
 	if err != nil {
+		s.spanError(span, err)
 		return JobMessage{}, err
 	}
 
 	var t JobMessage
 	if err := json.Unmarshal(b, &t); err != nil {
+		s.spanError(span, err)
 		return JobMessage{}, err
 	}
 
