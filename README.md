@@ -49,6 +49,22 @@
 
 A tasqueue server is the main store that holds the broker and the results interfaces. It also acts as a hub to register tasks.
 
+#### Server Options
+
+Server options are used to configure the server. Broker & Results are mandatory, while logger and open telemetry provider are optional. Refer to the [in-memory](./examples/in-memory/main.go) example for an open telemetry implementation.
+
+```go
+type ServerOpts struct {
+	// Mandatory results & broker implementations.
+	Broker        Broker
+	Results       Results
+
+	// Optional logger and telemetry provider.
+	Logger        logf.Logger
+	TraceProvider *trace.TracerProvider
+}
+```
+
 #### Usage
 
 ```go
@@ -74,8 +90,11 @@ func main() {
 		DB:       0,
 	})
 
-
-	srv, err := tasqueue.NewServer(broker, results)
+	srv, err := tasqueue.NewServer(tasqueue.ServerOpts{
+		Broker:        broker,
+		Results:       results,
+		Logger:        logf.New(logf.Opts{}),
+	})
 	if err != nil {
 		log.Fatal(err)
 	}

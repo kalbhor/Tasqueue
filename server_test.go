@@ -20,7 +20,11 @@ func newServer(t *testing.T) *Server {
 	lo := logf.New(logf.Opts{
 		Level: logf.DebugLevel,
 	})
-	srv, err := NewServer(NewMockBroker(), NewMockResults(), lo)
+	srv, err := NewServer(ServerOpts{
+		Broker:  NewMockBroker(),
+		Results: NewMockResults(),
+		Logger:  lo,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

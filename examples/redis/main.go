@@ -19,15 +19,19 @@ import (
 func main() {
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	lo := logf.New(logf.Opts{})
-	srv, err := tasqueue.NewServer(rb.New(rb.Options{
-		Addrs:    []string{"127.0.0.1:6379"},
-		Password: "",
-		DB:       0,
-	}, lo), rr.New(rr.Options{
-		Addrs:    []string{"127.0.0.1:6379"},
-		Password: "",
-		DB:       0,
-	}, lo), lo)
+	srv, err := tasqueue.NewServer(tasqueue.ServerOpts{
+		Broker: rb.New(rb.Options{
+			Addrs:    []string{"127.0.0.1:6379"},
+			Password: "",
+			DB:       0,
+		}, lo),
+		Results: rr.New(rr.Options{
+			Addrs:    []string{"127.0.0.1:6379"},
+			Password: "",
+			DB:       0,
+		}, lo),
+		Logger: lo,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
