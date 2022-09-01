@@ -116,13 +116,18 @@ func NewServer(o ServerOpts) (*Server, error) {
 }
 
 // GetResult() accepts a UUID and returns the result of the job in the results store.
-func (s *Server) GetResult(ctx context.Context, uuid string) ([]byte, error) {
+func (s *Server) GetResult(ctx context.Context, uuid string) ([][]byte, error) {
 	b, err := s.results.Get(ctx, resultsPrefix+uuid)
 	if err != nil {
 		return nil, err
 	}
 
-	return b, nil
+	var d [][]byte
+	if err := msgpack.Unmarshal(b, d); err != nil {
+		return nil, err
+	}
+
+	return d, nil
 }
 
 // GetFailed() returns the list of uuid's of jobs that failed.
