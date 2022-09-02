@@ -272,7 +272,7 @@ func (s *Server) execJob(ctx context.Context, msg JobMessage, task Task) error {
 		// Extract OnSuccessJob into a variable to get opts.
 		j := msg.Job.OnSuccess
 		nj := *j
-		meta := DefaultMeta(nj.opts)
+		meta := DefaultMeta(nj.Opts)
 		meta.PrevJobResults = taskCtx.results
 		msg.OnSuccessUUID, err = s.enqueueWithMeta(ctx, nj, meta)
 		if err != nil {
