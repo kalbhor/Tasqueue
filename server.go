@@ -64,7 +64,7 @@ type TaskOpts struct {
 // RegisterTask maps a new task against the tasks map on the server.
 // It accepts different options for the task (to set callbacks).
 func (s *Server) RegisterTask(name string, fn handler, opts TaskOpts) {
-	s.log.Debug("added handler", "name", name)
+	s.log.Info("added handler", "name", name)
 
 	if opts.Concurrency <= 0 {
 		opts.Concurrency = defaultConcurrency
@@ -103,6 +103,9 @@ func NewServer(o ServerOpts) (*Server, error) {
 	}
 	if o.Results == nil {
 		return nil, fmt.Errorf("results missing in options")
+	}
+	if o.Logger.Level == 0 {
+		o.Logger = logf.New(logf.Opts{})
 	}
 
 	return &Server{
@@ -177,14 +180,14 @@ func (s *Server) Start(ctx context.Context) {
 
 // consume() listens on the queue for task messages and passes the task to processor.
 func (s *Server) consume(ctx context.Context, work chan []byte, queue string) {
-	s.log.Debug("starting task consumer..")
+	s.log.Info("starting task consumer..")
 	s.broker.Consume(ctx, work, queue)
 }
 
 // process() listens on the work channel for tasks. On receiving a task it checks the
 // processors map and passes payload to relevant processor.
 func (s *Server) process(ctx context.Context, w chan []byte) {
-	s.log.Debug("starting processor..")
+	s.log.Info("starting processor..")
 	for {
 		var span spans.Span
 		if s.traceProv != nil {
@@ -194,7 +197,7 @@ func (s *Server) process(ctx context.Context, w chan []byte) {
 
 		select {
 		case <-ctx.Done():
-			s.log.Debug("shutting down processor..")
+			s.log.Info("shutting down processor..")
 			return
 		case work := <-w:
 			var (
