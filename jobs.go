@@ -26,7 +26,7 @@ type Job struct {
 	Task      string
 	Payload   []byte
 
-	opts JobOpts
+	Opts JobOpts
 }
 
 // JobOpts holds the various options available to configure a job.
@@ -72,7 +72,7 @@ func NewJob(handler string, payload []byte, opts JobOpts) (Job, error) {
 	}
 
 	return Job{
-		opts:    opts,
+		Opts:    opts,
 		Task:    handler,
 		Payload: payload,
 	}, nil
@@ -118,7 +118,7 @@ func (t *Job) message(meta Meta) JobMessage {
 // 2. Sets the job status as "started" on the results store.
 // 3. Enqueues the job (if the job is scheduled, pushes it onto the scheduler)
 func (s *Server) Enqueue(ctx context.Context, t Job) (string, error) {
-	return s.enqueueWithMeta(ctx, t, DefaultMeta(t.opts))
+	return s.enqueueWithMeta(ctx, t, DefaultMeta(t.Opts))
 }
 
 func (s *Server) enqueueWithMeta(ctx context.Context, t Job, meta Meta) (string, error) {
@@ -139,7 +139,7 @@ func (s *Server) enqueueWithMeta(ctx context.Context, t Job, meta Meta) (string,
 	}
 
 	// If a schedule is set, add a cron job.
-	if t.opts.Schedule != "" {
+	if t.Opts.Schedule != "" {
 		if err := s.enqueueScheduled(ctx, msg); err != nil {
 			s.spanError(span, err)
 			return "", err
