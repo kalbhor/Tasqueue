@@ -76,24 +76,27 @@ import (
 	"github.com/kalbhor/tasqueue"
 	rb "github.com/kalbhor/tasqueue/brokers/redis"
 	rr "github.com/kalbhor/tasqueue/results/redis"
+	"github.com/zerodha/logf"
 )
 
 func main() {
+	lo := logf.New(logf.Opts{})
+
 	broker := rb.New(rb.Options{
 		Addrs:    []string{"127.0.0.1:6379"},
 		Password: "",
 		DB:       0,
-	})
+	}, lo)
 	results := rr.New(rr.Options{
 		Addrs:    []string{"127.0.0.1:6379"},
 		Password: "",
 		DB:       0,
-	})
+	}, lo)
 
 	srv, err := tasqueue.NewServer(tasqueue.ServerOpts{
 		Broker:        broker,
 		Results:       results,
-		Logger:        logf.New(logf.Opts{}),
+		Logger:        lo,
 	})
 	if err != nil {
 		log.Fatal(err)
