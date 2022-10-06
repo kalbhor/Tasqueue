@@ -100,7 +100,7 @@ func (b *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
 		work <- msg.Data
 	}, nats.Durable(queue), nats.AckExplicit())
 	if err != nil {
-		b.log.Error("error consuming from nats", err)
+		b.log.Error("error consuming from nats", "error", err)
 	}
 
 	<-ctx.Done()
