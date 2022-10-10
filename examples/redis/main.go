@@ -7,11 +7,9 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"time"
 
 	"github.com/kalbhor/tasqueue"
 	rb "github.com/kalbhor/tasqueue/brokers/redis"
-	"github.com/kalbhor/tasqueue/examples/tasks"
 	rr "github.com/kalbhor/tasqueue/results/redis"
 	"github.com/zerodha/logf"
 )
@@ -36,14 +34,14 @@ func main() {
 		log.Fatal(err)
 	}
 
-	srv.RegisterTask("add", tasks.SumProcessor, tasqueue.TaskOpts{
+	srv.RegisterTask("add", SumProcessor, tasqueue.TaskOpts{
 		Concurrency: 5,
 	})
 
 	var chain []tasqueue.Job
 
 	for i := 0; i < 3; i++ {
-		b, _ := json.Marshal(tasks.SumPayload{Arg1: i, Arg2: 4})
+		b, _ := json.Marshal(SumPayload{Arg1: i, Arg2: 4})
 		task, err := tasqueue.NewJob("add", b, tasqueue.JobOpts{})
 		if err != nil {
 			log.Fatal(err)
@@ -51,18 +49,37 @@ func main() {
 		chain = append(chain, task)
 	}
 
-	t, _ := tasqueue.NewGroup(chain...)
-	x, _ := srv.EnqueueGroup(ctx, t)
-	go func() {
-		for {
-			select {
-			case <-time.Tick(time.Second * 1):
-				fmt.Println(srv.GetGroup(ctx, x))
-			}
-		}
-	}()
+	t, _ := tasqueue.NewChain(chain...)
+	srv.EnqueueChain(ctx, t)
 	srv.Start(ctx)
 
 	// Create a task payload.
 	fmt.Println("exit..")
+}
+
+type SumPayload struct {
+	Arg1 int `json:"arg1"`
+	Arg2 int `json:"arg2"`
+}
+
+type SumResult struct {
+	Result int `json:"result"`
+}
+
+// SumProcessor prints the sum of two integer arguements.
+func SumProcessor(b []byte, m *tasqueue.JobCtx) error {
+	log.Println(len(m.Meta.PrevJobResults))
+	var pl SumPayload
+	if err := json.Unmarshal(b, &pl); err != nil {
+		return err
+	}
+
+	rs, err := json.Marshal(SumResult{Result: pl.Arg1 + pl.Arg2})
+	if err != nil {
+		return err
+	}
+
+	m.Save(rs)
+
+	return nil
 }

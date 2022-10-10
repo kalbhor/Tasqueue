@@ -88,7 +88,7 @@ func BenchmarkJob(b *testing.B) {
 		var wg sync.WaitGroup
 		wg.Add(num)
 		// handler is essentially an empty job handler.
-		handler := func(b []byte, ctx JobCtx) error {
+		handler := func(b []byte, ctx *JobCtx) error {
 			wg.Done()
 			return nil
 		}
@@ -138,7 +138,7 @@ func BenchmarkChain(b *testing.B) {
 		wg.Add(num * jobNum)
 
 		// handler is essentially an empty job handler.
-		handler := func(x []byte, ctx JobCtx) error {
+		handler := func(x []byte, ctx *JobCtx) error {
 			wg.Done()
 			return nil
 		}
@@ -199,7 +199,7 @@ func BenchmarkGroup(b *testing.B) {
 		wg.Add(num * jobNum)
 
 		// handler is essentially an empty job handler.
-		handler := func(x []byte, ctx JobCtx) error {
+		handler := func(x []byte, ctx *JobCtx) error {
 			wg.Done()
 			return nil
 		}

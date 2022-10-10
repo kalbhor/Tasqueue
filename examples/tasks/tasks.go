@@ -16,7 +16,7 @@ type SumResult struct {
 }
 
 // SumProcessor prints the sum of two integer arguements.
-func SumProcessor(b []byte, m tasqueue.JobCtx) error {
+func SumProcessor(b []byte, m *tasqueue.JobCtx) error {
 	var pl SumPayload
 	if err := json.Unmarshal(b, &pl); err != nil {
 		return err

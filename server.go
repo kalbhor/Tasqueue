@@ -41,7 +41,7 @@ const (
 // handler represents a function that can accept arbitrary payload
 // and process it in any manner. A job ctx is passed, which allows the handler access to job details
 // and lets it save arbitrary results using JobCtx.Save()
-type handler func([]byte, JobCtx) error
+type handler func([]byte, *JobCtx) error
 
 // Task is a pre-registered job handler. It stores the callbacks (set through options), which are
 // called during different states of a job.
@@ -55,10 +55,10 @@ type Task struct {
 type TaskOpts struct {
 	Concurrency  uint32
 	Queue        string
-	SuccessCB    func(JobCtx)
-	ProcessingCB func(JobCtx)
-	RetryingCB   func(JobCtx)
-	FailedCB     func(JobCtx)
+	SuccessCB    func(*JobCtx)
+	ProcessingCB func(*JobCtx)
+	RetryingCB   func(*JobCtx)
+	FailedCB     func(*JobCtx)
 }
 
 // RegisterTask maps a new task against the tasks map on the server.
@@ -241,7 +241,7 @@ func (s *Server) execJob(ctx context.Context, msg JobMessage, task Task) error {
 	}
 	// Create the task context, which will be passed to the handler.
 	// TODO: maybe use sync.Pool
-	taskCtx := JobCtx{Meta: msg.Meta, store: s.results}
+	taskCtx := &JobCtx{Meta: msg.Meta, store: s.results}
 
 	if task.opts.ProcessingCB != nil {
 		task.opts.ProcessingCB(taskCtx)

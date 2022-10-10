@@ -39,7 +39,7 @@ type MockPayload struct {
 	ShouldErr bool
 }
 
-func MockHandler(msg []byte, _ JobCtx) error {
+func MockHandler(msg []byte, _ *JobCtx) error {
 	var m MockPayload
 	if err := json.Unmarshal(msg, &m); err != nil {
 		return err

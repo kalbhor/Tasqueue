@@ -110,10 +110,10 @@ Task options contains callbacks that are executed one a state change.
 type TaskOpts struct {
 	Concurrency  uint32
 	Queue        string
-	SuccessCB    func(JobCtx)
-	ProcessingCB func(JobCtx)
-	RetryingCB   func(JobCtx)
-	FailedCB     func(JobCtx)
+	SuccessCB    func(*JobCtx)
+	ProcessingCB func(*JobCtx)
+	RetryingCB   func(*JobCtx)
+	FailedCB     func(*JobCtx)
 }
 ```
 
@@ -121,7 +121,7 @@ type TaskOpts struct {
 
 A task can be registered by supplying a name, handler and options.
 Jobs can be processed using a task registered by a particular name.
-A handler is a function with the signature `func([]byte, JobCtx) error`. It is the responsibility of the handler to deal with the `[]byte` payload in whatever manner (decode, if required).
+A handler is a function with the signature `func([]byte, *JobCtx) error`. It is the responsibility of the handler to deal with the `[]byte` payload in whatever manner (decode, if required).
 
 ```go
 package tasks
@@ -142,7 +142,7 @@ type SumResult struct {
 }
 
 // SumProcessor prints the sum of two integer arguements.
-func SumProcessor(b []byte, m tasqueue.JobCtx) error {
+func SumProcessor(b []byte, m *tasqueue.JobCtx) error {
 	var pl SumPayload
 	if err := json.Unmarshal(b, &pl); err != nil {
 		return err
