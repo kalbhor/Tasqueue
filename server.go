@@ -242,12 +242,48 @@ func (s *Server) execJob(ctx context.Context, msg JobMessage, task Task) error {
 	// Create the task context, which will be passed to the handler.
 	// TODO: maybe use sync.Pool
 	taskCtx := JobCtx{Meta: msg.Meta, store: s.results}
+	var (
+		// errChan is to receive the error returned by the handler.
+		errChan chan error
+		err     error
+
+		// jctx is the context passed to the job.
+		jctx, cancelFunc = context.WithCancel(ctx)
+	)
+
+	// If there is a deadline given, set that on jctx and not ctx
+	// because we don't want to cancel the entire context in case deadline exceeded.
+	if !(msg.Job.Opts.Timeout.Seconds() == 0) {
+		jctx, cancelFunc = context.WithDeadline(ctx, time.Now().Add(msg.Job.Opts.Timeout))
+	}
+
+	// Set jctx as the context for the task.
+	taskCtx.Context = jctx
 
 	if task.opts.ProcessingCB != nil {
 		task.opts.ProcessingCB(taskCtx)
 	}
 
-	err := task.handler(msg.Job.Payload, taskCtx)
+	go func() {
+		errChan <- task.handler(msg.Job.Payload, taskCtx)
+		close(errChan)
+	}()
+
+	select {
+	case <-jctx.Done():
+		cancelFunc()
+		err = jctx.Err()
+		if jctx.Err() == context.Canceled {
+			err = nil
+		}
+	case jerr := <-errChan:
+		cancelFunc()
+		err = jerr
+		if jerr == context.Canceled {
+			err = nil
+		}
+	}
+
 	if err != nil {
 		// Set the job's error
 		msg.PrevErr = err.Error()
