@@ -244,7 +244,7 @@ func (s *Server) execJob(ctx context.Context, msg JobMessage, task Task) error {
 	taskCtx := JobCtx{Meta: msg.Meta, store: s.results}
 	var (
 		// errChan is to receive the error returned by the handler.
-		errChan chan error
+		errChan = make(chan error, 1)
 		err     error
 
 		// jctx is the context passed to the job.
@@ -253,7 +253,7 @@ func (s *Server) execJob(ctx context.Context, msg JobMessage, task Task) error {
 
 	// If there is a deadline given, set that on jctx and not ctx
 	// because we don't want to cancel the entire context in case deadline exceeded.
-	if !(msg.Job.Opts.Timeout.Seconds() == 0) {
+	if !(msg.Job.Opts.Timeout == 0) {
 		jctx, cancelFunc = context.WithDeadline(ctx, time.Now().Add(msg.Job.Opts.Timeout))
 	}
 

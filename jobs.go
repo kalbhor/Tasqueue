@@ -96,8 +96,6 @@ func (c *JobCtx) Save(b []byte) error {
 		return err
 	}
 
-	fmt.Println("saving results..", d)
-
 	return c.store.Set(c, resultsPrefix+c.Meta.UUID, d)
 }
 
