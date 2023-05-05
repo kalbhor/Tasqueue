@@ -126,7 +126,7 @@ func (s *Server) GetResult(ctx context.Context, uuid string) ([][]byte, error) {
 	}
 
 	var d [][]byte
-	if err := msgpack.Unmarshal(b, d); err != nil {
+	if err := msgpack.Unmarshal(b, &d); err != nil {
 		return nil, err
 	}
 
