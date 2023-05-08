@@ -9,7 +9,7 @@ import (
 func TestEnqueueGroup(t *testing.T) {
 	var (
 		ctx   = context.Background()
-		srv   = newServer(t)
+		srv   = newServer(t, taskName, MockHandler)
 		group = makeGroup(t, false, false)
 	)
 	go srv.Start(ctx)
@@ -28,7 +28,7 @@ func TestGetGroup(t *testing.T) {
 			StatusDone:   makeGroup(t, false, false),
 			StatusFailed: makeGroup(t, true, true),
 		}
-		srv = newServer(t)
+		srv = newServer(t, taskName, MockHandler)
 		ctx = context.Background()
 	)
 	go srv.Start(ctx)

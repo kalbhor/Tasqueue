@@ -12,7 +12,7 @@ const chainTask = "chain-task"
 func TestEnqueueChain(t *testing.T) {
 	var (
 		ctx   = context.Background()
-		srv   = newServer(t)
+		srv   = newServer(t, taskName, MockHandler)
 		chain = makeChain(t, taskName, false, false)
 	)
 	go srv.Start(ctx)
@@ -43,7 +43,7 @@ func TestGetChain(t *testing.T) {
 
 			return nil
 		}
-		srv = newServer(t)
+		srv = newServer(t, taskName, MockHandler)
 		ctx = context.Background()
 	)
 

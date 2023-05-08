@@ -10,7 +10,7 @@ import (
 func TestEnqueue(t *testing.T) {
 	var (
 		ctx = context.Background()
-		srv = newServer(t)
+		srv = newServer(t, taskName, MockHandler)
 		job = makeJob(t, taskName, false)
 	)
 	go srv.Start(ctx)
@@ -22,13 +22,43 @@ func TestEnqueue(t *testing.T) {
 	t.Logf("Enqueued job with uuid : %s\n", uuid)
 }
 
+func TestJobWithTimeout(t *testing.T) {
+	var (
+		ctx = context.Background()
+		srv = newServer(t, "mock_timeout", MockHandlerWithSleep)
+		job = makeJob(t, "mock_timeout", false)
+	)
+	go srv.Start(ctx)
+
+	job.Opts.Timeout = 1 * time.Second
+	job.Opts.MaxRetries = 0
+
+	uuid, err := srv.Enqueue(ctx, job)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Wait for task to be consumed & processed.
+	time.Sleep(3 * time.Second)
+
+	// Check if the job has been marked as failed.
+	msg, err := srv.GetJob(ctx, uuid)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !(msg.Status == StatusFailed) {
+		t.Fatalf("incorrect job status, expected %s, got %s", StatusFailed, msg.Status)
+	}
+}
+
 func TestGetJob(t *testing.T) {
 	var (
 		jobs = map[string]Job{
 			StatusDone:   makeJob(t, taskName, false),
 			StatusFailed: makeJob(t, taskName, true),
 		}
-		srv = newServer(t)
+		srv = newServer(t, taskName, MockHandler)
 		ctx = context.Background()
 	)
 	go srv.Start(ctx)
@@ -63,7 +93,7 @@ func TestSaveJob(t *testing.T) {
 			return nil
 		}
 		savedData = "saved results"
-		srv       = newServer(t)
+		srv       = newServer(t, taskName, MockHandler)
 		ctx       = context.Background()
 	)
 
