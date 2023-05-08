@@ -54,7 +54,7 @@ func TestGetGroup(t *testing.T) {
 func makeGroup(t *testing.T, fs ...bool) Group {
 	var jobs []Job
 	for _, f := range fs {
-		jobs = append(jobs, makeJob(t, f))
+		jobs = append(jobs, makeJob(t, taskName, f))
 	}
 	grp, err := NewGroup(jobs...)
 	if err != nil {

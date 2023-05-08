@@ -23,7 +23,6 @@ type ChainMeta struct {
 // A ChainMessage is stored in the results store.
 type ChainMessage struct {
 	ChainMeta
-	Chain *Chain
 }
 
 type Chain struct {
@@ -54,7 +53,6 @@ func (c *Chain) message() ChainMessage {
 			UUID:   uuid.NewString(),
 			Status: StatusProcessing,
 		},
-		Chain: c,
 	}
 }
 

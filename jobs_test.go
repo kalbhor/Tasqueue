@@ -11,7 +11,7 @@ func TestEnqueue(t *testing.T) {
 	var (
 		ctx = context.Background()
 		srv = newServer(t)
-		job = makeJob(t, false)
+		job = makeJob(t, taskName, false)
 	)
 	go srv.Start(ctx)
 	uuid, err := srv.Enqueue(ctx, job)
@@ -25,8 +25,8 @@ func TestEnqueue(t *testing.T) {
 func TestGetJob(t *testing.T) {
 	var (
 		jobs = map[string]Job{
-			StatusDone:   makeJob(t, false),
-			StatusFailed: makeJob(t, true),
+			StatusDone:   makeJob(t, taskName, false),
+			StatusFailed: makeJob(t, taskName, true),
 		}
 		srv = newServer(t)
 		ctx = context.Background()
@@ -52,8 +52,53 @@ func TestGetJob(t *testing.T) {
 	}
 }
 
-func makeJob(t *testing.T, f bool) Job {
-	j, err := json.Marshal(MockPayload{ShouldErr: f})
+func TestSaveJob(t *testing.T) {
+	var (
+		// handler simply saves the passed data onto the job's results
+		handler = func(d []byte, j JobCtx) error {
+			if err := j.Save(d); err != nil {
+				t.Fatal(err)
+			}
+
+			return nil
+		}
+		savedData = "saved results"
+		srv       = newServer(t)
+		ctx       = context.Background()
+	)
+
+	// Register the task and handler
+	srv.RegisterTask("validate-save", handler, TaskOpts{})
+
+	// Create a job that passes the data needed to be saved.
+	job, err := NewJob("validate-save", []byte(savedData), JobOpts{MaxRetries: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go srv.Start(ctx)
+
+	uuid, err := srv.Enqueue(ctx, job)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Wait for task to be consumed & processed.
+	time.Sleep(time.Second)
+
+	results, err := srv.GetResult(ctx, uuid)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(results) != savedData {
+		t.Fatalf("saved results don't match results fetched.\nsaved:%v\nfetched:%v", savedData, results)
+	}
+
+}
+
+func makeJob(t *testing.T, taskName string, doErr bool) Job {
+	j, err := json.Marshal(MockPayload{ShouldErr: doErr})
 	if err != nil {
 		t.Fatal(err)
 	}
