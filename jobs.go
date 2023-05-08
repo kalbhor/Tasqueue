@@ -34,6 +34,7 @@ type JobOpts struct {
 	Queue      string
 	MaxRetries uint32
 	Schedule   string
+	Timeout    time.Duration
 }
 
 // Meta contains fields related to a job. These are updated when a task is consumed.
@@ -80,6 +81,7 @@ func NewJob(handler string, payload []byte, opts JobOpts) (Job, error) {
 
 // JobCtx is passed onto handler functions. It allows access to a job's meta information to the handler.
 type JobCtx struct {
+	context.Context
 	// results just holds the results set by calling Save().
 	store Results
 	Meta  Meta
@@ -87,7 +89,7 @@ type JobCtx struct {
 
 // Save() sets arbitrary results for a job in the results store.
 func (c JobCtx) Save(b []byte) error {
-	return c.store.Set(context.Background(), resultsPrefix+c.Meta.UUID, b)
+	return c.store.Set(c, resultsPrefix+c.Meta.UUID, b)
 }
 
 // JobMessage is a wrapper over Task, used to transport the task over a broker.

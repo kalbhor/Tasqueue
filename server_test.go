@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/zerodha/logf"
 
@@ -16,7 +17,7 @@ const (
 	taskName = "mock_handler"
 )
 
-func newServer(t *testing.T) *Server {
+func newServer(t *testing.T, taskName string, handler func([]byte, JobCtx) error) *Server {
 	lo := logf.New(logf.Opts{
 		Level: logf.DebugLevel,
 	})
@@ -28,7 +29,7 @@ func newServer(t *testing.T) *Server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv.RegisterTask(taskName, MockHandler, TaskOpts{
+	srv.RegisterTask(taskName, handler, TaskOpts{
 		Concurrency: 5,
 	})
 
@@ -48,6 +49,13 @@ func MockHandler(msg []byte, _ JobCtx) error {
 	if m.ShouldErr {
 		return fmt.Errorf("task ended with error")
 	}
+
+	return nil
+}
+
+// MockHandlerWithSleep is a mock handler that sleeps for a long time.
+func MockHandlerWithSleep(msg []byte, _ JobCtx) error {
+	time.Sleep(3000 * time.Second)
 
 	return nil
 }
