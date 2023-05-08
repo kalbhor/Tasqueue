@@ -49,9 +49,9 @@ type Meta struct {
 	PrevErr       string
 	ProcessedAt   time.Time
 
-	// PrevJobResults contains any job results set by a previous job in a chain.
+	// PrevJobResults contains any job result set by the previous job in a chain.
 	// This will be nil if the previous job doesn't set the results on JobCtx.
-	PrevJobResults [][]byte
+	PrevJobResult []byte
 }
 
 // DefaultMeta returns Meta with a UUID and other defaults filled in.
@@ -82,21 +82,14 @@ func NewJob(handler string, payload []byte, opts JobOpts) (Job, error) {
 // JobCtx is passed onto handler functions. It allows access to a job's meta information to the handler.
 type JobCtx struct {
 	context.Context
-	store Results
 	// results just holds the results set by calling Save().
-	results [][]byte
-	Meta    Meta
+	store Results
+	Meta  Meta
 }
 
 // Save() sets arbitrary results for a job in the results store.
-func (c *JobCtx) Save(b []byte) error {
-	c.results = append(c.results, b)
-	d, err := msgpack.Marshal(c.results)
-	if err != nil {
-		return err
-	}
-
-	return c.store.Set(c, resultsPrefix+c.Meta.UUID, d)
+func (c JobCtx) Save(b []byte) error {
+	return c.store.Set(c, resultsPrefix+c.Meta.UUID, b)
 }
 
 // JobMessage is a wrapper over Task, used to transport the task over a broker.

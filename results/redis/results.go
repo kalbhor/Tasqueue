@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -108,10 +109,10 @@ func (r *Results) Set(ctx context.Context, uuid string, b []byte) error {
 
 func (r *Results) Get(ctx context.Context, uuid string) ([]byte, error) {
 	r.lo.Debug("getting result for job", "uuid", uuid)
-	rs, err := r.conn.Get(ctx, resultPrefix+uuid).Result()
-	if err != nil {
+	rs, err := r.conn.Get(ctx, resultPrefix+uuid).Bytes()
+	if err != nil && !errors.Is(err, redis.Nil) {
 		return nil, err
 	}
 
-	return []byte(rs), nil
+	return rs, nil
 }

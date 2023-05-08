@@ -119,18 +119,13 @@ func NewServer(o ServerOpts) (*Server, error) {
 }
 
 // GetResult() accepts a UUID and returns the result of the job in the results store.
-func (s *Server) GetResult(ctx context.Context, uuid string) ([][]byte, error) {
+func (s *Server) GetResult(ctx context.Context, uuid string) ([]byte, error) {
 	b, err := s.results.Get(ctx, resultsPrefix+uuid)
 	if err != nil {
 		return nil, err
 	}
 
-	var d [][]byte
-	if err := msgpack.Unmarshal(b, &d); err != nil {
-		return nil, err
-	}
-
-	return d, nil
+	return b, nil
 }
 
 // GetFailed() returns the list of uuid's of jobs that failed.
@@ -312,7 +307,12 @@ func (s *Server) execJob(ctx context.Context, msg JobMessage, task Task) error {
 		j := msg.Job.OnSuccess
 		nj := *j
 		meta := DefaultMeta(nj.Opts)
-		meta.PrevJobResults = taskCtx.results
+		meta.PrevJobResult, err = s.GetResult(ctx, msg.UUID)
+		if err != nil {
+			return err
+		}
+
+		// Set the UUID of the next job in the chain
 		msg.OnSuccessUUID, err = s.enqueueWithMeta(ctx, nj, meta)
 		if err != nil {
 			return err
