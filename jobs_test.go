@@ -52,6 +52,51 @@ func TestJobWithTimeout(t *testing.T) {
 	}
 }
 
+func TestGetPending(t *testing.T) {
+	var (
+		jobs = map[string]Job{
+			StatusDone:   makeJob(t, taskName, false),
+			StatusFailed: makeJob(t, taskName, true),
+		}
+		srv = newServer(t, taskName, MockHandler)
+		ctx = context.Background()
+	)
+
+	// Enqueue the jobs
+	for _, job := range jobs {
+		_, err := srv.Enqueue(ctx, job)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Check the queue for pending
+	msg, err := srv.GetPending(ctx, DefaultQueue)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Pending jobs must be equal to enqueued as of now
+	if len(msg) != len(jobs) {
+		t.Fatalf("pending job not found. resp: %+v, queued:%d", msg, len(jobs))
+	}
+
+	// Start consuming jobs
+	go srv.Start(ctx)
+	time.Sleep(2 * time.Second)
+
+	// Get pending (again) and check if jobs have been consumed
+	msg, err = srv.GetPending(ctx, DefaultQueue)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(msg) != 0 {
+		t.Fatalf("pending job not found. resp: %+v", msg)
+	}
+
+}
+
 func TestGetJob(t *testing.T) {
 	var (
 		jobs = map[string]Job{
@@ -123,6 +168,60 @@ func TestSaveJob(t *testing.T) {
 
 	if string(results) != savedData {
 		t.Fatalf("saved results don't match results fetched.\nsaved:%v\nfetched:%v", savedData, results)
+	}
+
+}
+
+func TestDeleteJob(t *testing.T) {
+	var (
+		// handler simply saves the passed data onto the job's results
+		handler = func(d []byte, j JobCtx) error {
+			if err := j.Save(d); err != nil {
+				t.Fatal(err)
+			}
+
+			return nil
+		}
+		savedData = "saved results"
+		srv       = newServer(t, taskName, MockHandler)
+		ctx       = context.Background()
+	)
+
+	// Register the task and handler
+	srv.RegisterTask("validate-save", handler, TaskOpts{})
+
+	// Create a job that passes the data needed to be saved.
+	job, err := NewJob("validate-save", []byte(savedData), JobOpts{MaxRetries: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go srv.Start(ctx)
+
+	uuid, err := srv.Enqueue(ctx, job)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Wait for task to be consumed & processed.
+	time.Sleep(time.Second)
+
+	results, err := srv.GetResult(ctx, uuid)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(results) != savedData {
+		t.Fatalf("saved results don't match results fetched.\nsaved:%v\nfetched:%v", savedData, results)
+	}
+
+	if err := srv.DeleteJob(ctx, uuid); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = srv.GetResult(ctx, uuid)
+	if err.Error() != "value not found" {
+		t.Fatalf("job results not deleted")
 	}
 
 }

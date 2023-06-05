@@ -122,16 +122,18 @@ checkJobs:
 	return c, nil
 }
 
+const chainPrefix = "chain:msg:"
+
 func (s *Server) setChainMessage(ctx context.Context, c ChainMessage) error {
 	b, err := json.Marshal(c)
 	if err != nil {
 		return err
 	}
-	return s.results.Set(ctx, c.UUID, b)
+	return s.results.Set(ctx, chainPrefix+c.UUID, b)
 }
 
 func (s *Server) getChainMessage(ctx context.Context, uuid string) (ChainMessage, error) {
-	b, err := s.results.Get(ctx, uuid)
+	b, err := s.results.Get(ctx, chainPrefix+uuid)
 	if err != nil {
 		return ChainMessage{}, err
 	}

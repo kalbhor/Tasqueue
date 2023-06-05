@@ -1,15 +1,14 @@
 package tasqueue
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/zerodha/logf"
 
+	rb "github.com/kalbhor/tasqueue/brokers/in-memory"
 	rr "github.com/kalbhor/tasqueue/results/in-memory"
 )
 
@@ -22,8 +21,8 @@ func newServer(t *testing.T, taskName string, handler func([]byte, JobCtx) error
 		Level: logf.DebugLevel,
 	})
 	srv, err := NewServer(ServerOpts{
-		Broker:  NewMockBroker(),
-		Results: NewMockResults(),
+		Broker:  rb.New(),
+		Results: rr.New(),
 		Logger:  lo,
 	})
 	if err != nil {
@@ -57,62 +56,5 @@ func MockHandler(msg []byte, _ JobCtx) error {
 func MockHandlerWithSleep(msg []byte, _ JobCtx) error {
 	time.Sleep(3000 * time.Second)
 
-	return nil
-}
-
-type MockResults struct {
-	mu    sync.Mutex
-	store map[string][]byte
-}
-
-func NewMockResults() *rr.Results {
-	return rr.New()
-}
-
-func (r *MockResults) Get(_ context.Context, uuid string) ([]byte, error) {
-	r.mu.Lock()
-	v, ok := r.store[uuid]
-	r.mu.Unlock()
-	if !ok {
-		return nil, fmt.Errorf("value not found")
-	}
-
-	return v, nil
-}
-
-func (r *MockResults) Set(_ context.Context, uuid string, b []byte) error {
-	r.mu.Lock()
-	r.store[uuid] = b
-	r.mu.Unlock()
-
-	return nil
-}
-
-type MockBroker struct {
-	queues map[string][][]byte
-	data   chan []byte
-}
-
-func NewMockBroker() *MockBroker {
-	return &MockBroker{
-		queues: make(map[string][][]byte),
-		data:   make(chan []byte, 100),
-	}
-}
-
-func (r *MockBroker) Consume(ctx context.Context, work chan []byte, _ string) {
-	for {
-		select {
-		case <-ctx.Done():
-			fmt.Println("stopping consumer")
-			return
-		case d := <-r.data:
-			work <- d
-		}
-	}
-}
-
-func (r *MockBroker) Enqueue(_ context.Context, msg []byte, _ string) error {
-	r.data <- msg
 	return nil
 }

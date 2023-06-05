@@ -53,6 +53,17 @@ func New(o Options, lo logf.Logger) *Broker {
 	}
 }
 
+func (r *Broker) GetPending(ctx context.Context, queue string) ([]string, error) {
+	rs, err := r.conn.LRange(ctx, queue, 0, -1).Result()
+	if err == redis.Nil {
+		return []string{}, nil
+	} else if err != nil {
+		return []string{}, err
+	}
+
+	return rs, nil
+}
+
 func (b *Broker) Enqueue(ctx context.Context, msg []byte, queue string) error {
 	return b.conn.LPush(ctx, queue, msg).Err()
 }

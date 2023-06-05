@@ -130,16 +130,18 @@ func getGroupStatus(jobStatus map[string]string) string {
 	return status
 }
 
+const groupPrefix = "group:msg:"
+
 func (s *Server) setGroupMessage(ctx context.Context, g GroupMessage) error {
 	b, err := json.Marshal(g)
 	if err != nil {
 		return err
 	}
-	return s.results.Set(ctx, g.UUID, b)
+	return s.results.Set(ctx, groupPrefix+g.UUID, b)
 }
 
 func (s *Server) getGroupMessage(ctx context.Context, uuid string) (GroupMessage, error) {
-	b, err := s.results.Get(ctx, uuid)
+	b, err := s.results.Get(ctx, groupPrefix+uuid)
 	if err != nil {
 		return GroupMessage{}, err
 	}
