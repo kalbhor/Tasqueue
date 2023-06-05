@@ -13,7 +13,6 @@ import (
 )
 
 const (
-	resultsPrefix          = "tasqueue:result:"
 	DefaultQueue           = "tasqueue:tasks"
 	defaultMaxRetry uint32 = 1
 )
@@ -89,7 +88,7 @@ type JobCtx struct {
 
 // Save() sets arbitrary results for a job in the results store.
 func (c JobCtx) Save(b []byte) error {
-	return c.store.Set(c, resultsPrefix+c.Meta.UUID, b)
+	return c.store.Set(c, c.Meta.UUID, b)
 }
 
 // JobMessage is a wrapper over Task, used to transport the task over a broker.
@@ -188,6 +187,8 @@ func (s *Server) enqueueMessage(ctx context.Context, msg JobMessage) error {
 	return nil
 }
 
+const jobPrefix = "job:msg:"
+
 func (s *Server) setJobMessage(ctx context.Context, t JobMessage) error {
 	var span spans.Span
 	if s.traceProv != nil {
@@ -200,7 +201,7 @@ func (s *Server) setJobMessage(ctx context.Context, t JobMessage) error {
 		s.spanError(span, err)
 		return fmt.Errorf("could not set job message in store : %w", err)
 	}
-	if err := s.results.Set(ctx, t.UUID, b); err != nil {
+	if err := s.results.Set(ctx, jobPrefix+t.UUID, b); err != nil {
 		s.spanError(span, err)
 		return fmt.Errorf("could not set job message in store : %w", err)
 	}
@@ -217,7 +218,7 @@ func (s *Server) GetJob(ctx context.Context, uuid string) (JobMessage, error) {
 		defer span.End()
 	}
 
-	b, err := s.results.Get(ctx, uuid)
+	b, err := s.results.Get(ctx, jobPrefix+uuid)
 	if err != nil {
 		s.spanError(span, err)
 		return JobMessage{}, err

@@ -87,3 +87,7 @@ func (r *Results) GetSuccess(_ context.Context) ([]string, error) {
 func (r *Results) GetFailed(_ context.Context) ([]string, error) {
 	return nil, fmt.Errorf("method not implemented")
 }
+
+func (r *Results) DeleteJob(_ context.Context, uuid string) error {
+	return r.conn.Delete(resultPrefix + uuid)
+}

@@ -5,6 +5,8 @@ import "context"
 type Results interface {
 	Get(ctx context.Context, uuid string) ([]byte, error)
 	Set(ctx context.Context, uuid string, b []byte) error
+	// DeleteJob removes the job's saved metadata from the store
+	DeleteJob(ctx context.Context, uuid string) error
 	GetFailed(ctx context.Context) ([]string, error)
 	GetSuccess(ctx context.Context) ([]string, error)
 	SetFailed(ctx context.Context, uuid string) error
@@ -17,10 +19,7 @@ type Broker interface {
 
 	// Consume listens for tasks on the queue and calls processor
 	Consume(ctx context.Context, work chan []byte, queue string)
-}
 
-// Opts is an interface to define arbitratry options.
-type Opts interface {
-	Name() string
-	Value() interface{}
+	// GetPending returns a list of stored job messages on the particular queue
+	GetPending(ctx context.Context, queue string) ([]string, error)
 }

@@ -106,3 +106,7 @@ func (b *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
 	<-ctx.Done()
 	b.log.Debug("shutting down consumer..")
 }
+
+func (b *Broker) GetPending(ctx context.Context, queue string) ([]string, error) {
+	return nil, fmt.Errorf("nats broker does not support this method")
+}

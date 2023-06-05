@@ -72,6 +72,23 @@ func (r *Results) GetSuccess(ctx context.Context) ([]string, error) {
 	return rs, nil
 }
 
+func (r *Results) DeleteJob(ctx context.Context, uuid string) error {
+	r.lo.Debug("deleting job")
+	if err := r.conn.LRem(ctx, resultPrefix+success, 1, uuid).Err(); err != nil {
+		return err
+	}
+
+	if err := r.conn.LRem(ctx, resultPrefix+failed, 1, uuid).Err(); err != nil {
+		return err
+	}
+
+	if err := r.conn.Del(ctx, resultPrefix+uuid).Err(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *Results) GetFailed(ctx context.Context) ([]string, error) {
 	r.lo.Debug("getting failed jobs")
 	rs, err := r.conn.LRange(ctx, resultPrefix+failed, 0, -1).Result()
@@ -109,6 +126,7 @@ func (r *Results) Set(ctx context.Context, uuid string, b []byte) error {
 
 func (r *Results) Get(ctx context.Context, uuid string) ([]byte, error) {
 	r.lo.Debug("getting result for job", "uuid", uuid)
+
 	rs, err := r.conn.Get(ctx, resultPrefix+uuid).Bytes()
 	if err != nil && !errors.Is(err, redis.Nil) {
 		return nil, err

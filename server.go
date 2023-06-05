@@ -118,14 +118,51 @@ func NewServer(o ServerOpts) (*Server, error) {
 	}, nil
 }
 
+// GetTasks() returns a list of all tasks registered with the server.
+func (s *Server) GetTasks() []string {
+	s.p.RLock()
+	tasks := s.tasks
+	s.p.RUnlock()
+
+	var t = make([]string, len(tasks))
+	for k := range tasks {
+		t = append(t, k)
+	}
+
+	return t
+}
+
 // GetResult() accepts a UUID and returns the result of the job in the results store.
 func (s *Server) GetResult(ctx context.Context, uuid string) ([]byte, error) {
-	b, err := s.results.Get(ctx, resultsPrefix+uuid)
+	b, err := s.results.Get(ctx, uuid)
 	if err != nil {
 		return nil, err
 	}
 
 	return b, nil
+}
+
+// GetPending() returns the pending job message's in the broker's queue.
+func (s *Server) GetPending(ctx context.Context, queue string) ([]JobMessage, error) {
+	rs, err := s.broker.GetPending(ctx, queue)
+	if err != nil {
+		return nil, err
+	}
+
+	var jobMsg = make([]JobMessage, len(rs))
+	for i, r := range rs {
+		if err := msgpack.Unmarshal([]byte(r), &jobMsg[i]); err != nil {
+			return nil, err
+		}
+	}
+
+	return jobMsg, nil
+}
+
+// DeleteJob() removes the stored results of a particular job. It does not "dequeue"
+// an unprocessed job. It is useful for removing the status of old finished jobs.
+func (s *Server) DeleteJob(ctx context.Context, uuid string) error {
+	return s.results.DeleteJob(ctx, uuid)
 }
 
 // GetFailed() returns the list of uuid's of jobs that failed.
