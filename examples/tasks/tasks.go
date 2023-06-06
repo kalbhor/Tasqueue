@@ -3,7 +3,7 @@ package tasks
 import (
 	"encoding/json"
 
-	"github.com/kalbhor/tasqueue"
+	"github.com/kalbhor/tasqueue/v2"
 )
 
 type SumPayload struct {

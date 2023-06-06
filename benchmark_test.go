@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/go-redis/redis"
-	rb "github.com/kalbhor/tasqueue/brokers/redis"
-	rr "github.com/kalbhor/tasqueue/results/redis"
+	rb "github.com/kalbhor/tasqueue/v2/brokers/redis"
+	rr "github.com/kalbhor/tasqueue/v2/results/redis"
 	"github.com/zerodha/logf"
 )
 

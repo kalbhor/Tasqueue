@@ -2,13 +2,13 @@
 
 ![taskqueue](https://user-images.githubusercontent.com/14031096/170992942-3b62e055-6d9e-4c08-a277-ed6d6e9a4c2a.png)
 
-[![Run Tests](https://github.com/kalbhor/Tasqueue/actions/workflows/test.yml/badge.svg)](https://github.com/kalbhor/Tasqueue/actions/workflows/test.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/kalbhor/tasqueue)](https://goreportcard.com/report/github.com/kalbhor/tasqueue)
+[![Run Tests](https://github.com/kalbhor/tasqueue/v2/actions/workflows/test.yml/badge.svg)](https://github.com/kalbhor/tasqueue/v2/actions/workflows/test.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/kalbhor/tasqueue/v2)](https://goreportcard.com/report/github.com/kalbhor/tasqueue/v2)
 
 **Tasqueue** is a simple, lightweight distributed job/worker implementation in Go
 
 ### Installation
 
-`go get -u github.com/kalbhor/tasqueue`
+`go get -u github.com/kalbhor/tasqueue/v2`
 
 - [Concepts](#concepts)
 - [Server](#server)
@@ -73,9 +73,9 @@ package main
 import (
 	"log"
 
-	"github.com/kalbhor/tasqueue"
-	rb "github.com/kalbhor/tasqueue/brokers/redis"
-	rr "github.com/kalbhor/tasqueue/results/redis"
+	"github.com/kalbhor/tasqueue/v2"
+	rb "github.com/kalbhor/tasqueue/v2/brokers/redis"
+	rr "github.com/kalbhor/tasqueue/v2/results/redis"
 	"github.com/zerodha/logf"
 )
 
@@ -132,7 +132,7 @@ package tasks
 import (
 	"encoding/json"
 
-	"github.com/kalbhor/tasqueue"
+	"github.com/kalbhor/tasqueue/v2"
 )
 
 type SumPayload struct {
