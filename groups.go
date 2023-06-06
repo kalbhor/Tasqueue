@@ -14,18 +14,18 @@ type Group struct {
 }
 
 type GroupOpts struct {
-	UUID string
+	ID string
 }
 
 // GroupMeta contains fields related to a group job. These are updated when a task is consumed.
 type GroupMeta struct {
-	UUID   string
+	ID     string
 	Status string
-	// JobStatus is a map of job uuid -> status
+	// JobStatus is a map of job id -> status
 	JobStatus map[string]string
 }
 
-// GroupMessage is a wrapper over Group, containing meta info such as status, uuid.
+// GroupMessage is a wrapper over Group, containing meta info such as status, id.
 // A GroupMessage is stored in the results store.
 type GroupMessage struct {
 	GroupMeta
@@ -34,14 +34,14 @@ type GroupMessage struct {
 
 // message() converts a group into a group message, ready to be enqueued/stored.
 func (t *Group) message() GroupMessage {
-	if t.Opts.UUID == "" {
-		t.Opts.UUID = uuid.NewString()
+	if t.Opts.ID == "" {
+		t.Opts.ID = uuid.NewString()
 	}
 
 	return GroupMessage{
 		GroupMeta: GroupMeta{
 			JobStatus: make(map[string]string),
-			UUID:      t.Opts.UUID,
+			ID:        t.Opts.ID,
 			Status:    StatusProcessing,
 		},
 		Group: t,
@@ -57,12 +57,12 @@ func NewGroup(j []Job, opts GroupOpts) (Group, error) {
 
 }
 
-// EnqueueGroup() accepts a group and returns the assigned UUID.
+// EnqueueGroup() accepts a group and returns the assigned ID.
 // The following steps take place:
-// 1. Converts it into a group message, which assigns a UUID (among other meta info) to the group.
+// 1. Converts it into a group message, which assigns a ID (among other meta info) to the group.
 // 2. Sets the group status as "started" on the results store.
 // 3. Loops over all jobs part of the group and enqueues the job each job.
-// 4. The job status map is updated with the uuids of each enqueued job.
+// 4. The job status map is updated with the IDs of each enqueued job.
 func (s *Server) EnqueueGroup(ctx context.Context, t Group) (string, error) {
 	msg := t.message()
 	for _, v := range t.Jobs {
@@ -76,11 +76,11 @@ func (s *Server) EnqueueGroup(ctx context.Context, t Group) (string, error) {
 	if err := s.setGroupMessage(ctx, msg); err != nil {
 		return "", err
 	}
-	return msg.UUID, nil
+	return msg.ID, nil
 }
 
-func (s *Server) GetGroup(ctx context.Context, uuid string) (GroupMessage, error) {
-	g, err := s.getGroupMessage(ctx, uuid)
+func (s *Server) GetGroup(ctx context.Context, id string) (GroupMessage, error) {
+	g, err := s.getGroupMessage(ctx, id)
 	if err != nil {
 		return g, nil
 	}
@@ -94,18 +94,18 @@ func (s *Server) GetGroup(ctx context.Context, uuid string) (GroupMessage, error
 	jobStatus := make(map[string]string)
 
 	// Run over the individual jobs and their status.
-	for uuid, status := range g.JobStatus {
+	for id, status := range g.JobStatus {
 		switch status {
 		// Jobs with a final status remain the same and do not require lookup
 		case StatusFailed, StatusDone:
-			jobStatus[uuid] = status
+			jobStatus[id] = status
 		// Re-look the jobs where the status is an intermediatery state (processing, retrying, etc).
 		case StatusStarted, StatusProcessing, StatusRetrying:
-			j, err := s.GetJob(ctx, uuid)
+			j, err := s.GetJob(ctx, id)
 			if err != nil {
 				return GroupMessage{}, err
 			}
-			jobStatus[uuid] = j.Status
+			jobStatus[id] = j.Status
 
 		}
 	}
@@ -143,11 +143,11 @@ func (s *Server) setGroupMessage(ctx context.Context, g GroupMessage) error {
 	if err != nil {
 		return err
 	}
-	return s.results.Set(ctx, groupPrefix+g.UUID, b)
+	return s.results.Set(ctx, groupPrefix+g.ID, b)
 }
 
-func (s *Server) getGroupMessage(ctx context.Context, uuid string) (GroupMessage, error) {
-	b, err := s.results.Get(ctx, groupPrefix+uuid)
+func (s *Server) getGroupMessage(ctx context.Context, id string) (GroupMessage, error) {
+	b, err := s.results.Get(ctx, groupPrefix+id)
 	if err != nil {
 		return GroupMessage{}, err
 	}

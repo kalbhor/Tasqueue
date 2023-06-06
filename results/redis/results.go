@@ -13,7 +13,7 @@ const (
 	defaultExpiry = 0
 	resultPrefix  = "tasqueue:results:"
 
-	// Suffix for hashmaps storing success/failed job uuid's
+	// Suffix for hashmaps storing success/failed job ids
 	success = "success"
 	failed  = "failed"
 )
@@ -72,17 +72,17 @@ func (r *Results) GetSuccess(ctx context.Context) ([]string, error) {
 	return rs, nil
 }
 
-func (r *Results) DeleteJob(ctx context.Context, uuid string) error {
+func (r *Results) DeleteJob(ctx context.Context, id string) error {
 	r.lo.Debug("deleting job")
-	if err := r.conn.LRem(ctx, resultPrefix+success, 1, uuid).Err(); err != nil {
+	if err := r.conn.LRem(ctx, resultPrefix+success, 1, id).Err(); err != nil {
 		return err
 	}
 
-	if err := r.conn.LRem(ctx, resultPrefix+failed, 1, uuid).Err(); err != nil {
+	if err := r.conn.LRem(ctx, resultPrefix+failed, 1, id).Err(); err != nil {
 		return err
 	}
 
-	if err := r.conn.Del(ctx, resultPrefix+uuid).Err(); err != nil {
+	if err := r.conn.Del(ctx, resultPrefix+id).Err(); err != nil {
 		return err
 	}
 
@@ -99,9 +99,9 @@ func (r *Results) GetFailed(ctx context.Context) ([]string, error) {
 	return rs, nil
 }
 
-func (r *Results) SetSuccess(ctx context.Context, uuid string) error {
+func (r *Results) SetSuccess(ctx context.Context, id string) error {
 	r.lo.Debug("setting job as successful")
-	_, err := r.conn.RPush(ctx, resultPrefix+success, uuid).Result()
+	_, err := r.conn.RPush(ctx, resultPrefix+success, id).Result()
 	if err != nil {
 		return err
 	}
@@ -109,9 +109,9 @@ func (r *Results) SetSuccess(ctx context.Context, uuid string) error {
 	return nil
 }
 
-func (r *Results) SetFailed(ctx context.Context, uuid string) error {
+func (r *Results) SetFailed(ctx context.Context, id string) error {
 	r.lo.Debug("setting job as failed")
-	_, err := r.conn.RPush(ctx, resultPrefix+failed, uuid).Result()
+	_, err := r.conn.RPush(ctx, resultPrefix+failed, id).Result()
 	if err != nil {
 		return err
 	}
@@ -119,15 +119,15 @@ func (r *Results) SetFailed(ctx context.Context, uuid string) error {
 	return nil
 }
 
-func (r *Results) Set(ctx context.Context, uuid string, b []byte) error {
-	r.lo.Debug("setting result for job", "uuid", uuid)
-	return r.conn.Set(ctx, resultPrefix+uuid, b, defaultExpiry).Err()
+func (r *Results) Set(ctx context.Context, id string, b []byte) error {
+	r.lo.Debug("setting result for job", "id", id)
+	return r.conn.Set(ctx, resultPrefix+id, b, defaultExpiry).Err()
 }
 
-func (r *Results) Get(ctx context.Context, uuid string) ([]byte, error) {
-	r.lo.Debug("getting result for job", "uuid", uuid)
+func (r *Results) Get(ctx context.Context, id string) ([]byte, error) {
+	r.lo.Debug("getting result for job", "id", id)
 
-	rs, err := r.conn.Get(ctx, resultPrefix+uuid).Bytes()
+	rs, err := r.conn.Get(ctx, resultPrefix+id).Bytes()
 	if err != nil && !errors.Is(err, redis.Nil) {
 		return nil, err
 	}

@@ -183,8 +183,8 @@ A tasqueue job represents a unit of work pushed onto the queue, that requires pr
 ```go
 // JobOpts holds the various options available to configure a job.
 type JobOpts struct {
-	// Optional UUID passed by client. If empty, Tasqueue generates it.
-	UUID string
+	// Optional ID passed by client. If empty, Tasqueue generates it.
+	ID string
 
 	Queue      string
 	MaxRetries uint32
@@ -207,10 +207,10 @@ if err != nil {
 
 #### Enqueuing a job
 
-Once a job is created, it can be enqueued via the server for processing. Calling `srv.Enqueue` returns a job uuid which can be used to query the status of the job.
+Once a job is created, it can be enqueued via the server for processing. Calling `srv.Enqueue` returns a job id which can be used to query the status of the job.
 
 ```go
-uuid, err := srv.Enqueue(ctx, job)
+id, err := srv.Enqueue(ctx, job)
 if err != nil {
 	log.Fatal(err)
 }
@@ -221,7 +221,7 @@ if err != nil {
 To query the details of a job that was enqueued, we can use `srv.GetJob`. It returns a `JobMessage` which contains details related to a job.
 
 ```go
-jobMsg, err := srv.GetJob(ctx, uuid)
+jobMsg, err := srv.GetJob(ctx, id)
 if err != nil {
 	log.Fatal(err)
 }
@@ -232,8 +232,8 @@ Fields available in a `JobMessage` (embeds `Meta`):
 ```go
 // Meta contains fields related to a job. These are updated when a task is consumed.
 type Meta struct {
-	UUID          string
-	OnSuccessUUID string
+	ID          string
+	OnSuccessID string
 	Status        string
 	Queue         string
 	Schedule      string
@@ -280,10 +280,10 @@ if err != nil {
 
 #### Enqueuing a group
 
-Once a group is created, it can be enqueued via the server for processing. Calling `srv.EnqueueGroup` returns a group uuid which can be used to query the status of the group.
+Once a group is created, it can be enqueued via the server for processing. Calling `srv.EnqueueGroup` returns a group id which can be used to query the status of the group.
 
 ```go
-groupUUID, err := srv.EnqueueGroup(ctx, grp)
+groupID, err := srv.EnqueueGroup(ctx, grp)
 if err != nil {
 	log.Fatal(err)
 }
@@ -294,7 +294,7 @@ if err != nil {
 To query the details of a group that was enqueued, we can use `srv.GetGroup`. It returns a `GroupMessage` which contains details related to a group.
 
 ```go
-groupMsg, err := srv.GetGroup(ctx, groupUUID)
+groupMsg, err := srv.GetGroup(ctx, groupID)
 if err != nil {
 	log.Fatal(err)
 }
@@ -305,9 +305,9 @@ Fields available in a `GroupMessage` (embeds `GroupMeta`):
 ```go
 // GroupMeta contains fields related to a group job. These are updated when a task is consumed.
 type GroupMeta struct {
-	UUID   string
+	ID   string
 	Status string
-	// JobStatus is a map of individual job uuid -> status
+	// JobStatus is a map of individual job id -> status
 	JobStatus map[string]string
 }
 ```
@@ -340,10 +340,10 @@ if err != nil {
 
 #### Enqueuing a chain
 
-Once a chain is created, it can be enqueued via the server for processing. Calling `srv.EnqueueChain` returns a chain uuid which can be used to query the status of the chain.
+Once a chain is created, it can be enqueued via the server for processing. Calling `srv.EnqueueChain` returns a chain id which can be used to query the status of the chain.
 
 ```go
-chainUUID, err := srv.EnqueueChain(ctx, chn)
+chainID, err := srv.EnqueueChain(ctx, chn)
 if err != nil {
 	log.Fatal(err)
 }
@@ -358,7 +358,7 @@ A job in the chain can access the results of the previous job in the chain by ge
 To query the details of a chain that was enqueued, we can use `srv.GetChain`. It returns a `ChainMessage` which contains details related to a chian.
 
 ```go
-chainMsg, err := srv.GetChain(ctx, chainUUID)
+chainMsg, err := srv.GetChain(ctx, chainID)
 if err != nil {
 	log.Fatal(err)
 }
@@ -369,12 +369,12 @@ Fields available in a `ChainMessage` (embeds `ChainMeta`):
 ```go
 // ChainMeta contains fields related to a chain job.
 type ChainMeta struct {
-	UUID string
+	ID string
 	// Status of the overall chain
 	Status string
-	// UUID of the current job part of chain
-	JobUUID string
-	// List of UUIDs of completed jobs
+	// ID of the current job part of chain
+	JobID string
+	// List of IDs of completed jobs
 	PrevJobs []string
 }
 ```
@@ -386,7 +386,7 @@ A result is arbitrary `[]byte` data saved by a handler or callback via `JobCtx.S
 #### Get Result
 
 ```go
-b, err := srv.GetResult(ctx, jobUUID)
+b, err := srv.GetResult(ctx, jobID)
 if err != nil {
 	log.Fatal(err)
 }
@@ -397,7 +397,7 @@ if err != nil {
 DeleteJob removes the job's saved metadata from the store
 
 ```go
-err := srv.DeleteResult(ctx, jobUUID)
+err := srv.DeleteResult(ctx, jobID)
 if err != nil {
 	log.Fatal(err)
 }

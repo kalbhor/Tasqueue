@@ -3,14 +3,14 @@ package tasqueue
 import "context"
 
 type Results interface {
-	Get(ctx context.Context, uuid string) ([]byte, error)
-	Set(ctx context.Context, uuid string, b []byte) error
+	Get(ctx context.Context, id string) ([]byte, error)
+	Set(ctx context.Context, id string, b []byte) error
 	// DeleteJob removes the job's saved metadata from the store
-	DeleteJob(ctx context.Context, uuid string) error
+	DeleteJob(ctx context.Context, id string) error
 	GetFailed(ctx context.Context) ([]string, error)
 	GetSuccess(ctx context.Context) ([]string, error)
-	SetFailed(ctx context.Context, uuid string) error
-	SetSuccess(ctx context.Context, uuid string) error
+	SetFailed(ctx context.Context, id string) error
+	SetSuccess(ctx context.Context, id string) error
 }
 
 type Broker interface {

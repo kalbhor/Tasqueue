@@ -17,12 +17,12 @@ func TestEnqueueChain(t *testing.T) {
 	)
 	go srv.Start(ctx)
 
-	uuid, err := srv.EnqueueChain(ctx, chain)
+	id, err := srv.EnqueueChain(ctx, chain)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Logf("Enqueued chain with uuid : %s\n", uuid)
+	t.Logf("Enqueued chain with id : %s\n", id)
 }
 
 func TestGetChain(t *testing.T) {
@@ -63,13 +63,13 @@ func TestGetChain(t *testing.T) {
 
 	go srv.Start(ctx)
 
-	uuid, err := srv.EnqueueChain(ctx, chain)
+	id, err := srv.EnqueueChain(ctx, chain)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Wait for jobs to be consumed & processed.
 	time.Sleep(time.Second * 1)
-	msg, err := srv.GetChain(ctx, uuid)
+	msg, err := srv.GetChain(ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
