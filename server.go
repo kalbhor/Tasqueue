@@ -124,9 +124,13 @@ func (s *Server) GetTasks() []string {
 	tasks := s.tasks
 	s.p.RUnlock()
 
-	var t = make([]string, len(tasks))
+	var (
+		t = make([]string, len(tasks))
+		i = 0
+	)
 	for k := range tasks {
-		t = append(t, k)
+		t[i] = k
+		i++
 	}
 
 	return t

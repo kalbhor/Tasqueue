@@ -30,6 +30,9 @@ type Job struct {
 
 // JobOpts holds the various options available to configure a job.
 type JobOpts struct {
+	// Optional UUID passed by client. If empty, Tasqueue generates it.
+	UUID string
+
 	Queue      string
 	MaxRetries uint32
 	Schedule   string
@@ -55,8 +58,12 @@ type Meta struct {
 
 // DefaultMeta returns Meta with a UUID and other defaults filled in.
 func DefaultMeta(opts JobOpts) Meta {
+	if opts.UUID == "" {
+		opts.UUID = uuid.NewString()
+	}
+
 	return Meta{
-		UUID:     uuid.NewString(),
+		UUID:     opts.UUID,
 		Status:   StatusStarted,
 		MaxRetry: opts.MaxRetries,
 		Schedule: opts.Schedule,

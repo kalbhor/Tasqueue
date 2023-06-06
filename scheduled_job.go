@@ -3,6 +3,7 @@ package tasqueue
 import (
 	"context"
 
+	"github.com/vmihailenco/msgpack/v5"
 	"github.com/zerodha/logf"
 )
 
@@ -29,8 +30,14 @@ func newScheduled(ctx context.Context, log logf.Logger, b Broker, msg JobMessage
 // It uses the embedded broker and results interfaces to enqueue a task.
 // Functionally, this method is similar to server.AddTask().
 func (s *scheduledJob) Run() {
-	if err := s.broker.Enqueue(s.ctx, s.msg.Job.Payload, s.msg.Queue); err != nil {
-		s.log.Error("could not enqueue task message", err)
+	b, err := msgpack.Marshal(s.msg)
+	if err != nil {
+		s.log.Error("could not marshal payload", "err", err)
+		return
+	}
+
+	if err := s.broker.Enqueue(s.ctx, b, s.msg.Queue); err != nil {
+		s.log.Error("could not enqueue task message", "err", err)
 	}
 
 }

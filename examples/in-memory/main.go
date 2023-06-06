@@ -98,7 +98,7 @@ func main() {
 		chain = append(chain, task)
 	}
 
-	t, _ := tasqueue.NewGroup(chain...)
+	t, _ := tasqueue.NewGroup(chain, tasqueue.GroupOpts{})
 	x, _ := srv.EnqueueGroup(ctx, t)
 	go func() {
 		for {

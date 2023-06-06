@@ -40,7 +40,7 @@ func main() {
 		Concurrency: 5,
 	})
 
-	var chain []tasqueue.Job
+	var group []tasqueue.Job
 
 	for i := 0; i < 3; i++ {
 		b, _ := json.Marshal(tasks.SumPayload{Arg1: i, Arg2: 4})
@@ -48,10 +48,10 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		chain = append(chain, task)
+		group = append(group, task)
 	}
 
-	t, _ := tasqueue.NewGroup(chain...)
+	t, _ := tasqueue.NewGroup(group, tasqueue.GroupOpts{})
 	x, _ := srv.EnqueueGroup(ctx, t)
 	go func() {
 		for {
