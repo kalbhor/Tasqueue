@@ -27,12 +27,18 @@ type ChainMessage struct {
 
 type Chain struct {
 	Jobs []Job
+	Opts ChainOpts
+}
+
+type ChainOpts struct {
+	// Optional UUID passed by client. If empty, Tasqueue generates it.
+	UUID string
 }
 
 // NewChain() accepts a list of Tasks and creates a chain by setting the
 // onSuccess task of i'th task to (i+1)'th task, hence forming a "chain".
 // It returns the first task (essentially the first node of the linked list), which can be queued normally.
-func NewChain(j ...Job) (Chain, error) {
+func NewChain(j []Job, opts ChainOpts) (Chain, error) {
 	if len(j) < 2 {
 		return Chain{}, fmt.Errorf("minimum 2 tasks required to form chain")
 	}
@@ -43,14 +49,18 @@ func NewChain(j ...Job) (Chain, error) {
 		j[i].OnSuccess = &j[i+1]
 	}
 
-	return Chain{Jobs: j}, nil
+	return Chain{Jobs: j, Opts: opts}, nil
 }
 
 // message() converts a group into a group message, ready to be enqueued/stored.
 func (c *Chain) message() ChainMessage {
+	if c.Opts.UUID == "" {
+		c.Opts.UUID = uuid.NewString()
+	}
+
 	return ChainMessage{
 		ChainMeta: ChainMeta{
-			UUID:   uuid.NewString(),
+			UUID:   c.Opts.UUID,
 			Status: StatusProcessing,
 		},
 	}

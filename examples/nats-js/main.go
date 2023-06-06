@@ -61,7 +61,7 @@ func main() {
 		chain = append(chain, task)
 	}
 
-	t, _ := tasqueue.NewChain(chain...)
+	t, _ := tasqueue.NewChain(chain, tasqueue.ChainOpts{})
 	srv.EnqueueChain(ctx, t)
 
 	srv.Start(ctx)

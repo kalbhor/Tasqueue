@@ -56,7 +56,7 @@ func makeGroup(t *testing.T, fs ...bool) Group {
 	for _, f := range fs {
 		jobs = append(jobs, makeJob(t, taskName, f))
 	}
-	grp, err := NewGroup(jobs...)
+	grp, err := NewGroup(jobs, GroupOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}

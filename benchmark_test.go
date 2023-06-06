@@ -152,7 +152,7 @@ func BenchmarkChain(b *testing.B) {
 				jobs[j] = newJob(b)
 			}
 
-			chain, err := NewChain(jobs...)
+			chain, err := NewChain(jobs, ChainOpts{})
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -213,7 +213,7 @@ func BenchmarkGroup(b *testing.B) {
 				jobs[j] = newJob(b)
 			}
 
-			group, err := NewGroup(jobs...)
+			group, err := NewGroup(jobs, GroupOpts{})
 			if err != nil {
 				b.Fatalf(err.Error())
 			}

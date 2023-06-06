@@ -56,7 +56,7 @@ func TestGetChain(t *testing.T) {
 		makeJob(t, chainTask, false),
 	}
 
-	chain, err := NewChain(jobs...)
+	chain, err := NewChain(jobs, ChainOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func makeChain(t *testing.T, taskName string, fs ...bool) Chain {
 	for _, f := range fs {
 		jobs = append(jobs, makeJob(t, taskName, f))
 	}
-	chn, err := NewChain(jobs...)
+	chn, err := NewChain(jobs, ChainOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}

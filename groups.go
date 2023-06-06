@@ -10,6 +10,11 @@ import (
 
 type Group struct {
 	Jobs []Job
+	Opts GroupOpts
+}
+
+type GroupOpts struct {
+	UUID string
 }
 
 // GroupMeta contains fields related to a group job. These are updated when a task is consumed.
@@ -29,10 +34,14 @@ type GroupMessage struct {
 
 // message() converts a group into a group message, ready to be enqueued/stored.
 func (t *Group) message() GroupMessage {
+	if t.Opts.UUID == "" {
+		t.Opts.UUID = uuid.NewString()
+	}
+
 	return GroupMessage{
 		GroupMeta: GroupMeta{
 			JobStatus: make(map[string]string),
-			UUID:      uuid.NewString(),
+			UUID:      t.Opts.UUID,
 			Status:    StatusProcessing,
 		},
 		Group: t,
@@ -40,13 +49,10 @@ func (t *Group) message() GroupMessage {
 }
 
 // NewGroup() accepts a list of jobs and creates a group.
-func NewGroup(j ...Job) (Group, error) {
-	if len(j) < 2 {
-		return Group{}, fmt.Errorf("minimum 2 tasks required to form group")
-	}
-
+func NewGroup(j []Job, opts GroupOpts) (Group, error) {
 	return Group{
 		Jobs: j,
+		Opts: opts,
 	}, nil
 
 }
