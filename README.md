@@ -183,9 +183,13 @@ A tasqueue job represents a unit of work pushed onto the queue, that requires pr
 ```go
 // JobOpts holds the various options available to configure a job.
 type JobOpts struct {
-	Queue      string // default: `tasqueue:tasks`
-	MaxRetries uint32 // default: `1`
-	Schedule   string // cron schedule for the job
+	// Optional UUID passed by client. If empty, Tasqueue generates it.
+	UUID string
+
+	Queue      string
+	MaxRetries uint32
+	Schedule   string
+	Timeout    time.Duration
 }
 ```
 
@@ -228,14 +232,19 @@ Fields available in a `JobMessage` (embeds `Meta`):
 ```go
 // Meta contains fields related to a job. These are updated when a task is consumed.
 type Meta struct {
-	UUID        string
-	Status      string
-	Queue       string
-	Schedule    string
-	MaxRetry    uint32
-	Retried     uint32
-	PrevErr     string
-	ProcessedAt time.Time
+	UUID          string
+	OnSuccessUUID string
+	Status        string
+	Queue         string
+	Schedule      string
+	MaxRetry      uint32
+	Retried       uint32
+	PrevErr       string
+	ProcessedAt   time.Time
+
+	// PrevJobResults contains any job result set by the previous job in a chain.
+	// This will be nil if the previous job doesn't set the results on JobCtx.
+	PrevJobResult []byte
 }
 ```
 
@@ -263,7 +272,7 @@ for i := 0; i < 3; i++ {
 	group = append(group, job)
 }
 
-grp, err := tasqueue.NewGroup(group...)
+grp, err := tasqueue.NewGroup(group, tasqueue.GroupOpts{})
 if err != nil {
 	log.Fatal(err)
 }
@@ -323,7 +332,7 @@ for i := 0; i < 3; i++ {
 	chain = append(chain, task)
 }
 
-chn, err := tasqueue.NewChain(chain...)
+chn, err := tasqueue.NewChain(chain, tasqueue.ChainOpts{})
 if err != nil {
 	log.Fatal(err)
 }
@@ -378,6 +387,17 @@ A result is arbitrary `[]byte` data saved by a handler or callback via `JobCtx.S
 
 ```go
 b, err := srv.GetResult(ctx, jobUUID)
+if err != nil {
+	log.Fatal(err)
+}
+```
+
+#### Delete Result
+
+DeleteJob removes the job's saved metadata from the store
+
+```go
+err := srv.DeleteResult(ctx, jobUUID)
 if err != nil {
 	log.Fatal(err)
 }
