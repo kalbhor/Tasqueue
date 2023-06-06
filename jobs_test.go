@@ -204,7 +204,7 @@ func TestDeleteJob(t *testing.T) {
 	}
 
 	// Wait for task to be consumed & processed.
-	time.Sleep(time.Second)
+	time.Sleep(time.Second * 3)
 
 	results, err := srv.GetResult(ctx, uuid)
 	if err != nil {
