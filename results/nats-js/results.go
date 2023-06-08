@@ -57,8 +57,8 @@ func New(cfg Options, lo logf.Logger) (*Results, error) {
 	}, nil
 }
 
-func (r *Results) Get(_ context.Context, uuid string) ([]byte, error) {
-	rs, err := r.conn.Get(resultPrefix + uuid)
+func (r *Results) Get(_ context.Context, id string) ([]byte, error) {
+	rs, err := r.conn.Get(resultPrefix + id)
 	if err != nil {
 		return nil, err
 	}
@@ -66,17 +66,17 @@ func (r *Results) Get(_ context.Context, uuid string) ([]byte, error) {
 	return rs.Value(), nil
 }
 
-func (r *Results) Set(_ context.Context, uuid string, b []byte) error {
-	if _, err := r.conn.Put(resultPrefix+uuid, b); err != nil {
+func (r *Results) Set(_ context.Context, id string, b []byte) error {
+	if _, err := r.conn.Put(resultPrefix+id, b); err != nil {
 		return err
 	}
 	return nil
 }
-func (r *Results) SetSuccess(_ context.Context, uuid string) error {
+func (r *Results) SetSuccess(_ context.Context, id string) error {
 	return fmt.Errorf("method not implemented")
 }
 
-func (r *Results) SetFailed(_ context.Context, uuid string) error {
+func (r *Results) SetFailed(_ context.Context, id string) error {
 	return fmt.Errorf("method not implemented")
 }
 
@@ -88,6 +88,6 @@ func (r *Results) GetFailed(_ context.Context) ([]string, error) {
 	return nil, fmt.Errorf("method not implemented")
 }
 
-func (r *Results) DeleteJob(_ context.Context, uuid string) error {
-	return r.conn.Delete(resultPrefix + uuid)
+func (r *Results) DeleteJob(_ context.Context, id string) error {
+	return r.conn.Delete(resultPrefix + id)
 }

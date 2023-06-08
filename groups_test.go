@@ -14,12 +14,12 @@ func TestEnqueueGroup(t *testing.T) {
 	)
 	go srv.Start(ctx)
 
-	uuid, err := srv.EnqueueGroup(ctx, group)
+	id, err := srv.EnqueueGroup(ctx, group)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Logf("Enqueued job with uuid : %s\n", uuid)
+	t.Logf("Enqueued job with id : %s\n", id)
 }
 
 func TestGetGroup(t *testing.T) {
@@ -34,13 +34,13 @@ func TestGetGroup(t *testing.T) {
 	go srv.Start(ctx)
 
 	for status, group := range groups {
-		uuid, err := srv.EnqueueGroup(ctx, group)
+		id, err := srv.EnqueueGroup(ctx, group)
 		if err != nil {
 			t.Fatal(err)
 		}
 		// Wait for task to be consumed & processed.
 		time.Sleep(time.Second)
-		msg, err := srv.GetGroup(ctx, uuid)
+		msg, err := srv.GetGroup(ctx, id)
 		if err != nil {
 			t.Fatal(err)
 		}

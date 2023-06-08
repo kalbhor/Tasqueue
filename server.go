@@ -136,9 +136,9 @@ func (s *Server) GetTasks() []string {
 	return t
 }
 
-// GetResult() accepts a UUID and returns the result of the job in the results store.
-func (s *Server) GetResult(ctx context.Context, uuid string) ([]byte, error) {
-	b, err := s.results.Get(ctx, uuid)
+// GetResult() accepts a ID and returns the result of the job in the results store.
+func (s *Server) GetResult(ctx context.Context, id string) ([]byte, error) {
+	b, err := s.results.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -165,16 +165,16 @@ func (s *Server) GetPending(ctx context.Context, queue string) ([]JobMessage, er
 
 // DeleteJob() removes the stored results of a particular job. It does not "dequeue"
 // an unprocessed job. It is useful for removing the status of old finished jobs.
-func (s *Server) DeleteJob(ctx context.Context, uuid string) error {
-	return s.results.DeleteJob(ctx, uuid)
+func (s *Server) DeleteJob(ctx context.Context, id string) error {
+	return s.results.DeleteJob(ctx, id)
 }
 
-// GetFailed() returns the list of uuid's of jobs that failed.
+// GetFailed() returns the list of ids of jobs that failed.
 func (s *Server) GetFailed(ctx context.Context) ([]string, error) {
 	return s.results.GetFailed(ctx)
 }
 
-// GetSuccess() returns the list of uuid's of jobs that were successful.
+// GetSuccess() returns the list of ids of jobs that were successful.
 func (s *Server) GetSuccess(ctx context.Context) ([]string, error) {
 	return s.results.GetSuccess(ctx)
 }
@@ -348,13 +348,13 @@ func (s *Server) execJob(ctx context.Context, msg JobMessage, task Task) error {
 		j := msg.Job.OnSuccess
 		nj := *j
 		meta := DefaultMeta(nj.Opts)
-		meta.PrevJobResult, err = s.GetResult(ctx, msg.UUID)
+		meta.PrevJobResult, err = s.GetResult(ctx, msg.ID)
 		if err != nil {
 			return err
 		}
 
-		// Set the UUID of the next job in the chain
-		msg.OnSuccessUUID, err = s.enqueueWithMeta(ctx, nj, meta)
+		// Set the ID of the next job in the chain
+		msg.OnSuccessID, err = s.enqueueWithMeta(ctx, nj, meta)
 		if err != nil {
 			return err
 		}
@@ -459,7 +459,7 @@ func (s *Server) statusDone(ctx context.Context, t JobMessage) error {
 	t.ProcessedAt = time.Now()
 	t.Status = StatusDone
 
-	if err := s.results.SetSuccess(ctx, t.UUID); err != nil {
+	if err := s.results.SetSuccess(ctx, t.ID); err != nil {
 		return err
 	}
 
@@ -481,7 +481,7 @@ func (s *Server) statusFailed(ctx context.Context, t JobMessage) error {
 	t.ProcessedAt = time.Now()
 	t.Status = StatusFailed
 
-	if err := s.results.SetFailed(ctx, t.UUID); err != nil {
+	if err := s.results.SetFailed(ctx, t.ID); err != nil {
 		return err
 	}
 

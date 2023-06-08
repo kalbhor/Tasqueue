@@ -21,9 +21,9 @@ func New() *Results {
 	}
 }
 
-func (r *Results) Get(ctx context.Context, uuid string) ([]byte, error) {
+func (r *Results) Get(ctx context.Context, id string) ([]byte, error) {
 	r.mu.Lock()
-	v, ok := r.store[uuid]
+	v, ok := r.store[id]
 	r.mu.Unlock()
 	if !ok {
 		return nil, fmt.Errorf("value not found")
@@ -32,35 +32,35 @@ func (r *Results) Get(ctx context.Context, uuid string) ([]byte, error) {
 	return v, nil
 }
 
-func (r *Results) DeleteJob(ctx context.Context, uuid string) error {
+func (r *Results) DeleteJob(ctx context.Context, id string) error {
 	r.mu.Lock()
-	delete(r.store, uuid)
-	delete(r.failed, uuid)
-	delete(r.success, uuid)
+	delete(r.store, id)
+	delete(r.failed, id)
+	delete(r.success, id)
 	r.mu.Unlock()
 
 	return nil
 }
 
-func (r *Results) Set(ctx context.Context, uuid string, b []byte) error {
+func (r *Results) Set(ctx context.Context, id string, b []byte) error {
 	r.mu.Lock()
-	r.store[uuid] = b
+	r.store[id] = b
 	r.mu.Unlock()
 
 	return nil
 }
 
-func (r *Results) SetSuccess(_ context.Context, uuid string) error {
+func (r *Results) SetSuccess(_ context.Context, id string) error {
 	r.mu.Lock()
-	r.success[uuid] = struct{}{}
+	r.success[id] = struct{}{}
 	r.mu.Unlock()
 
 	return nil
 }
 
-func (r *Results) SetFailed(_ context.Context, uuid string) error {
+func (r *Results) SetFailed(_ context.Context, id string) error {
 	r.mu.Lock()
-	r.failed[uuid] = struct{}{}
+	r.failed[id] = struct{}{}
 	r.mu.Unlock()
 
 	return nil

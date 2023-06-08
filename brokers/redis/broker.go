@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -12,6 +13,7 @@ import (
 
 const (
 	DefaultPollPeriod = time.Second
+	sortedSetKey      = "tasqueue:ss:%s"
 )
 
 type Options struct {
@@ -68,7 +70,16 @@ func (b *Broker) Enqueue(ctx context.Context, msg []byte, queue string) error {
 	return b.conn.LPush(ctx, queue, msg).Err()
 }
 
+func (b *Broker) EnqueueScheduled(ctx context.Context, msg []byte, queue string, ts time.Time) error {
+	return b.conn.ZAdd(ctx, fmt.Sprintf(sortedSetKey, queue), &redis.Z{
+		Score:  float64(ts.UnixNano()),
+		Member: msg,
+	}).Err()
+}
+
 func (b *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
+	go b.consumeScheduled(ctx, queue)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -90,6 +101,46 @@ func (b *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
 				work <- []byte(msg)
 			}
 		}
+	}
+}
+
+func (b *Broker) consumeScheduled(ctx context.Context, queue string) {
+	poll := time.NewTicker(b.pollPeriod)
+
+	for {
+		select {
+		case <-ctx.Done():
+			b.log.Debug("shutting down scheduled consumer..")
+			return
+		case <-poll.C:
+			b.conn.Watch(ctx, func(tx *redis.Tx) error {
+				// Fetch the tasks with score less than current time. These tasks have been scheduled
+				// to be queued.
+				tasks, err := tx.ZRevRangeByScore(ctx, fmt.Sprintf(sortedSetKey, queue), &redis.ZRangeBy{
+					Min:    "0",
+					Max:    strconv.FormatInt(time.Now().UnixNano(), 10),
+					Offset: 0,
+					Count:  1,
+				}).Result()
+				if err != nil {
+					return err
+				}
+
+				for _, task := range tasks {
+					if err := b.Enqueue(ctx, []byte(task), queue); err != nil {
+						return err
+					}
+				}
+
+				// Remove the tasks
+				if err := tx.ZRem(ctx, fmt.Sprintf(sortedSetKey, queue), tasks).Err(); err != nil {
+					return err
+				}
+
+				return nil
+			})
+		}
+
 	}
 }
 

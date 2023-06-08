@@ -8,8 +8,8 @@ import (
 
 	"github.com/zerodha/logf"
 
-	rb "github.com/kalbhor/tasqueue/brokers/in-memory"
-	rr "github.com/kalbhor/tasqueue/results/in-memory"
+	rb "github.com/kalbhor/tasqueue/v2/brokers/in-memory"
+	rr "github.com/kalbhor/tasqueue/v2/results/in-memory"
 )
 
 const (

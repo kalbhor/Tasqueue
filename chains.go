@@ -10,16 +10,16 @@ import (
 
 // ChainMeta contains fields related to a chain job.
 type ChainMeta struct {
-	UUID string
+	ID string
 	// Status of the overall chain
 	Status string
-	// UUID of the current job part of chain
-	JobUUID string
-	// List of UUIDs of completed jobs
+	// ID of the current job part of chain
+	JobID string
+	// List of IDs of completed jobs
 	PrevJobs []string
 }
 
-// ChainMessage is a wrapper over Chain, containing meta info such as status, uuid.
+// ChainMessage is a wrapper over Chain, containing meta info such as status, id.
 // A ChainMessage is stored in the results store.
 type ChainMessage struct {
 	ChainMeta
@@ -31,8 +31,8 @@ type Chain struct {
 }
 
 type ChainOpts struct {
-	// Optional UUID passed by client. If empty, Tasqueue generates it.
-	UUID string
+	// Optional ID passed by client. If empty, Tasqueue generates it.
+	ID string
 }
 
 // NewChain() accepts a list of Tasks and creates a chain by setting the
@@ -54,13 +54,13 @@ func NewChain(j []Job, opts ChainOpts) (Chain, error) {
 
 // message() converts a group into a group message, ready to be enqueued/stored.
 func (c *Chain) message() ChainMessage {
-	if c.Opts.UUID == "" {
-		c.Opts.UUID = uuid.NewString()
+	if c.Opts.ID == "" {
+		c.Opts.ID = uuid.NewString()
 	}
 
 	return ChainMessage{
 		ChainMeta: ChainMeta{
-			UUID:   c.Opts.UUID,
+			ID:     c.Opts.ID,
 			Status: StatusProcessing,
 		},
 	}
@@ -69,21 +69,21 @@ func (c *Chain) message() ChainMessage {
 func (s *Server) EnqueueChain(ctx context.Context, c Chain) (string, error) {
 	msg := c.message()
 	root := c.Jobs[0]
-	jobUUID, err := s.Enqueue(ctx, root)
+	jobID, err := s.Enqueue(ctx, root)
 	if err != nil {
 		return "", err
 	}
-	msg.JobUUID = jobUUID
+	msg.JobID = jobID
 
 	if err := s.setChainMessage(ctx, msg); err != nil {
 		return "", err
 	}
 
-	return msg.UUID, nil
+	return msg.ID, nil
 }
 
-func (s *Server) GetChain(ctx context.Context, uuid string) (ChainMessage, error) {
-	c, err := s.getChainMessage(ctx, uuid)
+func (s *Server) GetChain(ctx context.Context, id string) (ChainMessage, error) {
+	c, err := s.getChainMessage(ctx, id)
 	if err != nil {
 		return ChainMessage{}, err
 	}
@@ -93,7 +93,7 @@ func (s *Server) GetChain(ctx context.Context, uuid string) (ChainMessage, error
 	}
 
 	// Fetch the current job, to check its status
-	currJob, err := s.GetJob(ctx, c.JobUUID)
+	currJob, err := s.GetJob(ctx, c.JobID)
 	if err != nil {
 		return ChainMessage{}, nil
 	}
@@ -103,7 +103,7 @@ checkJobs:
 	//If the current job failed, add it to previous jobs list
 	// Set the chain status to failed
 	case StatusFailed:
-		c.PrevJobs = append(c.PrevJobs, currJob.UUID)
+		c.PrevJobs = append(c.PrevJobs, currJob.ID)
 		c.Status = StatusFailed
 	// If the current job status is an intermediatery status
 	// Set the chain status as processing.
@@ -113,11 +113,11 @@ checkJobs:
 	// If there is no next job id, the chain is complete, set overall status
 	// to success. Otherwise update the current job and perform all the above checks.
 	case StatusDone:
-		c.PrevJobs = append(c.PrevJobs, currJob.UUID)
-		if currJob.OnSuccessUUID == "" {
+		c.PrevJobs = append(c.PrevJobs, currJob.ID)
+		if currJob.OnSuccessID == "" {
 			c.Status = StatusDone
 		} else {
-			currJob, err = s.GetJob(ctx, currJob.OnSuccessUUID)
+			currJob, err = s.GetJob(ctx, currJob.OnSuccessID)
 			if err != nil {
 				return ChainMessage{}, nil
 			}
@@ -139,11 +139,11 @@ func (s *Server) setChainMessage(ctx context.Context, c ChainMessage) error {
 	if err != nil {
 		return err
 	}
-	return s.results.Set(ctx, chainPrefix+c.UUID, b)
+	return s.results.Set(ctx, chainPrefix+c.ID, b)
 }
 
-func (s *Server) getChainMessage(ctx context.Context, uuid string) (ChainMessage, error) {
-	b, err := s.results.Get(ctx, chainPrefix+uuid)
+func (s *Server) getChainMessage(ctx context.Context, id string) (ChainMessage, error) {
+	b, err := s.results.Get(ctx, chainPrefix+id)
 	if err != nil {
 		return ChainMessage{}, err
 	}
