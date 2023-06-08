@@ -1,6 +1,9 @@
 package tasqueue
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type Results interface {
 	Get(ctx context.Context, id string) ([]byte, error)
@@ -16,6 +19,10 @@ type Results interface {
 type Broker interface {
 	// Enqueue places a task in the queue
 	Enqueue(ctx context.Context, msg []byte, queue string) error
+
+	// EnqueueScheduled accepts a task (msg, queue) and also a timestamp
+	// The job should be enqueued at the particular timestamp.
+	EnqueueScheduled(ctx context.Context, msg []byte, queue string, ts time.Time) error
 
 	// Consume listens for tasks on the queue and calls processor
 	Consume(ctx context.Context, work chan []byte, queue string)

@@ -3,6 +3,7 @@ package nats
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/zerodha/logf"
@@ -109,4 +110,8 @@ func (b *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
 
 func (b *Broker) GetPending(ctx context.Context, queue string) ([]string, error) {
 	return nil, fmt.Errorf("nats broker does not support this method")
+}
+
+func (b *Broker) EnqueueScheduled(ctx context.Context, msg []byte, queue string, ts time.Time) error {
+	return fmt.Errorf("nats broker does not support this method")
 }

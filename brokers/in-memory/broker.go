@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 )
 
 type Broker struct {
@@ -73,4 +74,8 @@ func (r *Broker) GetPending(ctx context.Context, queue string) ([]string, error)
 	}
 
 	return pending, nil
+}
+
+func (b *Broker) EnqueueScheduled(ctx context.Context, msg []byte, queue string, ts time.Time) error {
+	return fmt.Errorf("in-memory broker does not support this method")
 }

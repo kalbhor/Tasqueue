@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/robfig/cron/v3"
 	"github.com/vmihailenco/msgpack/v5"
 	"go.opentelemetry.io/otel"
 	spans "go.opentelemetry.io/otel/trace"
@@ -33,6 +34,7 @@ type JobOpts struct {
 	// Optional ID passed by client. If empty, Tasqueue generates it.
 	ID string
 
+	ETA        time.Time
 	Queue      string
 	MaxRetries uint32
 	Schedule   string
@@ -129,6 +131,32 @@ func (s *Server) enqueueWithMeta(ctx context.Context, t Job, meta Meta) (string,
 		defer span.End()
 	}
 
+	// If a schedule is set, add a cron job.
+	if t.Opts.Schedule != "" {
+		// Parse the cron schedule
+		sch, err := cron.ParseStandard(t.Opts.Schedule)
+		if err != nil {
+			s.spanError(span, err)
+			return "", err
+		}
+
+		if t.Opts.ETA.IsZero() {
+			// Set the jobs eta as the next time based on schedule
+			t.Opts.ETA = sch.Next(time.Now())
+		}
+		// Create a new job that will be enqueued after existing job
+		j, err := NewJob(t.Task, t.Payload, t.Opts)
+		if err != nil {
+			s.spanError(span, err)
+			return "", err
+		}
+
+		// Set current jobs OnSuccess as next job
+		t.OnSuccess = &j
+		// Set the next job's eta according to schedule
+		j.Opts.ETA = sch.Next(t.Opts.ETA)
+	}
+
 	var (
 		msg = t.message(meta)
 	)
@@ -139,8 +167,7 @@ func (s *Server) enqueueWithMeta(ctx context.Context, t Job, meta Meta) (string,
 		return "", err
 	}
 
-	// If a schedule is set, add a cron job.
-	if t.Opts.Schedule != "" {
+	if !t.Opts.ETA.IsZero() {
 		if err := s.enqueueScheduled(ctx, msg); err != nil {
 			s.spanError(span, err)
 			return "", err
@@ -159,13 +186,17 @@ func (s *Server) enqueueWithMeta(ctx context.Context, t Job, meta Meta) (string,
 func (s *Server) enqueueScheduled(ctx context.Context, msg JobMessage) error {
 	var span spans.Span
 	if s.traceProv != nil {
-		ctx, span = otel.Tracer(tracer).Start(ctx, "enqueue_scheduled")
+		ctx, span = otel.Tracer(tracer).Start(ctx, "enqueue_message")
 		defer span.End()
 	}
 
-	schJob := newScheduled(ctx, s.log, s.broker, msg)
-	// TODO: maintain a map of scheduled cron tasks
-	if _, err := s.cron.AddJob(msg.Schedule, schJob); err != nil {
+	b, err := msgpack.Marshal(msg)
+	if err != nil {
+		s.spanError(span, err)
+		return err
+	}
+
+	if err := s.broker.EnqueueScheduled(ctx, b, msg.Queue, msg.Job.Opts.ETA); err != nil {
 		s.spanError(span, err)
 		return err
 	}
