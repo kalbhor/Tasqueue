@@ -9,8 +9,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
 	"github.com/vmihailenco/msgpack/v5"
-	"go.opentelemetry.io/otel"
-	spans "go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -125,18 +123,18 @@ func (s *Server) Enqueue(ctx context.Context, t Job) (string, error) {
 }
 
 func (s *Server) enqueueWithMeta(ctx context.Context, t Job, meta Meta) (string, error) {
-	var span spans.Span
-	if s.traceProv != nil {
-		ctx, span = otel.Tracer(tracer).Start(ctx, "enqueue_with_meta")
-		defer span.End()
-	}
+	// //var span spans.Span
+	// if s.traceProv != nil {
+	// 	//ctx, span = otel.Tracer(tracer).Start(ctx, "enqueue_with_meta")
+	// 	//defer span.End()
+	// }
 
 	// If a schedule is set, add a cron job.
 	if t.Opts.Schedule != "" {
 		// Parse the cron schedule
 		sch, err := cron.ParseStandard(t.Opts.Schedule)
 		if err != nil {
-			s.spanError(span, err)
+			//s.spanError(span, err)
 			return "", err
 		}
 
@@ -147,7 +145,7 @@ func (s *Server) enqueueWithMeta(ctx context.Context, t Job, meta Meta) (string,
 		// Create a new job that will be enqueued after existing job
 		j, err := NewJob(t.Task, t.Payload, t.Opts)
 		if err != nil {
-			s.spanError(span, err)
+			//s.spanError(span, err)
 			return "", err
 		}
 
@@ -163,20 +161,20 @@ func (s *Server) enqueueWithMeta(ctx context.Context, t Job, meta Meta) (string,
 
 	// Set job status in the results backend.
 	if err := s.statusStarted(ctx, msg); err != nil {
-		s.spanError(span, err)
+		//s.spanError(span, err)
 		return "", err
 	}
 
 	if !t.Opts.ETA.IsZero() {
 		if err := s.enqueueScheduled(ctx, msg); err != nil {
-			s.spanError(span, err)
+			//s.spanError(span, err)
 			return "", err
 		}
 		return msg.ID, nil
 	}
 
 	if err := s.enqueueMessage(ctx, msg); err != nil {
-		s.spanError(span, err)
+		//s.spanError(span, err)
 		return "", err
 	}
 
@@ -184,20 +182,20 @@ func (s *Server) enqueueWithMeta(ctx context.Context, t Job, meta Meta) (string,
 }
 
 func (s *Server) enqueueScheduled(ctx context.Context, msg JobMessage) error {
-	var span spans.Span
-	if s.traceProv != nil {
-		ctx, span = otel.Tracer(tracer).Start(ctx, "enqueue_message")
-		defer span.End()
-	}
+	// //var span spans.Span
+	// if s.traceProv != nil {
+	// 	//ctx, span = otel.Tracer(tracer).Start(ctx, "enqueue_message")
+	// 	//defer span.End()
+	// }
 
 	b, err := msgpack.Marshal(msg)
 	if err != nil {
-		s.spanError(span, err)
+		//s.spanError(span, err)
 		return err
 	}
 
 	if err := s.broker.EnqueueScheduled(ctx, b, msg.Queue, msg.Job.Opts.ETA); err != nil {
-		s.spanError(span, err)
+		//s.spanError(span, err)
 		return err
 	}
 
@@ -205,20 +203,20 @@ func (s *Server) enqueueScheduled(ctx context.Context, msg JobMessage) error {
 }
 
 func (s *Server) enqueueMessage(ctx context.Context, msg JobMessage) error {
-	var span spans.Span
-	if s.traceProv != nil {
-		ctx, span = otel.Tracer(tracer).Start(ctx, "enqueue_message")
-		defer span.End()
-	}
+	// //var span spans.Span
+	// if s.traceProv != nil {
+	// 	//ctx, span = otel.Tracer(tracer).Start(ctx, "enqueue_message")
+	// 	//defer span.End()
+	// }
 
 	b, err := msgpack.Marshal(msg)
 	if err != nil {
-		s.spanError(span, err)
+		//s.spanError(span, err)
 		return err
 	}
 
 	if err := s.broker.Enqueue(ctx, b, msg.Queue); err != nil {
-		s.spanError(span, err)
+		//s.spanError(span, err)
 		return err
 	}
 
@@ -228,19 +226,19 @@ func (s *Server) enqueueMessage(ctx context.Context, msg JobMessage) error {
 const jobPrefix = "job:msg:"
 
 func (s *Server) setJobMessage(ctx context.Context, t JobMessage) error {
-	var span spans.Span
-	if s.traceProv != nil {
-		ctx, span = otel.Tracer(tracer).Start(ctx, "set_job_message")
-		defer span.End()
-	}
+	// var span spans.Span
+	// if s.traceProv != nil {
+	// 	ctx, span = otel.Tracer(tracer).Start(ctx, "set_job_message")
+	// 	defer span.End()
+	// }
 
 	b, err := json.Marshal(t)
 	if err != nil {
-		s.spanError(span, err)
+		//s.spanError(span, err)
 		return fmt.Errorf("could not set job message in store : %w", err)
 	}
 	if err := s.results.Set(ctx, jobPrefix+t.ID, b); err != nil {
-		s.spanError(span, err)
+		//s.spanError(span, err)
 		return fmt.Errorf("could not set job message in store : %w", err)
 	}
 
@@ -250,21 +248,21 @@ func (s *Server) setJobMessage(ctx context.Context, t JobMessage) error {
 // GetJob accepts a ID and returns the job message in the results store.
 // This is useful to check the status of a job message.
 func (s *Server) GetJob(ctx context.Context, id string) (JobMessage, error) {
-	var span spans.Span
-	if s.traceProv != nil {
-		ctx, span = otel.Tracer(tracer).Start(ctx, "get_job")
-		defer span.End()
-	}
+	// var span spans.Span
+	// if s.traceProv != nil {
+	// 	ctx, span = otel.Tracer(tracer).Start(ctx, "get_job")
+	// 	defer span.End()
+	// }
 
 	b, err := s.results.Get(ctx, jobPrefix+id)
 	if err != nil {
-		s.spanError(span, err)
+		//s.spanError(span, err)
 		return JobMessage{}, err
 	}
 
 	var t JobMessage
 	if err := json.Unmarshal(b, &t); err != nil {
-		s.spanError(span, err)
+		//s.spanError(span, err)
 		return JobMessage{}, err
 	}
 
