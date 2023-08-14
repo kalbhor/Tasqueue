@@ -115,7 +115,7 @@ func TestGetJob(t *testing.T) {
 		}
 
 		// Wait for task to be consumed & processed.
-		time.Sleep(time.Second)
+		time.Sleep(time.Second * 2)
 		msg, err := srv.GetJob(ctx, uuid)
 		if err != nil {
 			t.Fatal(err)
