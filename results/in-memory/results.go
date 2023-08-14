@@ -2,7 +2,7 @@ package inmemory
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"sync"
 )
 
@@ -21,15 +21,21 @@ func New() *Results {
 	}
 }
 
+var errNotFound = errors.New("could not find result in in-memory store")
+
 func (r *Results) Get(ctx context.Context, id string) ([]byte, error) {
 	r.mu.Lock()
 	v, ok := r.store[id]
 	r.mu.Unlock()
 	if !ok {
-		return nil, fmt.Errorf("value not found")
+		return nil, errNotFound
 	}
 
 	return v, nil
+}
+
+func (r *Results) NilError() error {
+	return errNotFound
 }
 
 func (r *Results) DeleteJob(ctx context.Context, id string) error {

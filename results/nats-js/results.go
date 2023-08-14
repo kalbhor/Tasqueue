@@ -66,6 +66,10 @@ func (r *Results) Get(_ context.Context, id string) ([]byte, error) {
 	return rs.Value(), nil
 }
 
+func (r *Results) NilError() error {
+	return nats.ErrKeyNotFound
+}
+
 func (r *Results) Set(_ context.Context, id string, b []byte) error {
 	if _, err := r.conn.Put(resultPrefix+id, b); err != nil {
 		return err

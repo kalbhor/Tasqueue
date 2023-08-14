@@ -2,6 +2,7 @@ package tasqueue
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"sync"
@@ -160,14 +161,21 @@ func (s *Server) GetTasks() []string {
 	return t
 }
 
+var ErrNotFound = errors.New("result not found")
+
 // GetResult() accepts a ID and returns the result of the job in the results store.
 func (s *Server) GetResult(ctx context.Context, id string) ([]byte, error) {
 	b, err := s.results.Get(ctx, id)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		return b, nil
 	}
 
-	return b, nil
+	// Check if error is due to key being invalid
+	if errors.Is(err, s.results.NilError()) {
+		return nil, ErrNotFound
+	}
+
+	return nil, err
 }
 
 // GetPending() returns the pending job message's in the broker's queue.

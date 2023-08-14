@@ -143,7 +143,7 @@ func (s *Server) setChainMessage(ctx context.Context, c ChainMessage) error {
 }
 
 func (s *Server) getChainMessage(ctx context.Context, id string) (ChainMessage, error) {
-	b, err := s.results.Get(ctx, chainPrefix+id)
+	b, err := s.GetResult(ctx, chainPrefix+id)
 	if err != nil {
 		return ChainMessage{}, err
 	}

@@ -3,6 +3,7 @@ package tasqueue
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 )
@@ -226,8 +227,8 @@ func TestDeleteJob(t *testing.T) {
 	}
 
 	_, err = srv.GetResult(ctx, uuid)
-	if err.Error() != "value not found" {
-		t.Fatalf("job results not deleted")
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("job results not deleted: %v", err)
 	}
 
 }
