@@ -47,8 +47,14 @@ func TestGetChain(t *testing.T) {
 		ctx = context.Background()
 	)
 
-	srv.RegisterTask(chainTask1, initHandler, TaskOpts{})
-	srv.RegisterTask(chainTask, handler, TaskOpts{})
+	err := srv.RegisterTask(chainTask1, initHandler, TaskOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = srv.RegisterTask(chainTask, handler, TaskOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create sequential list of jobs for the chain.
 	var jobs = []Job{

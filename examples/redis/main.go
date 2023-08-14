@@ -36,9 +36,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	srv.RegisterTask("add", tasks.SumProcessor, tasqueue.TaskOpts{
-		Concurrency: 5,
-	})
+	err = srv.RegisterTask("add", tasks.SumProcessor, tasqueue.TaskOpts{Concurrency: 5})
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	var group []tasqueue.Job
 

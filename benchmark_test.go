@@ -94,7 +94,10 @@ func BenchmarkJob(b *testing.B) {
 		}
 
 		// Register the handler and enqueue the jobs.
-		srv.RegisterTask(sampleHandler, handler, TaskOpts{Concurrency: concurrency})
+		err := srv.RegisterTask(sampleHandler, handler, TaskOpts{Concurrency: concurrency})
+		if err != nil {
+			b.Fatal(err)
+		}
 		for i := 0; i < num; i++ {
 			if _, err := srv.Enqueue(ctx, newJob(b)); err != nil {
 				b.Fatalf("could not enqueue job : %v", err)
@@ -144,7 +147,10 @@ func BenchmarkChain(b *testing.B) {
 		}
 
 		// Register the handler and enqueue the jobs.
-		srv.RegisterTask(sampleHandler, handler, TaskOpts{Concurrency: concurrency})
+		err := srv.RegisterTask(sampleHandler, handler, TaskOpts{Concurrency: concurrency})
+		if err != nil {
+			b.Fatal(err)
+		}
 		for i := 0; i < num; i++ {
 			// Create a list of jobs to generate a chain.
 			var jobs = make([]Job, jobNum)
@@ -205,7 +211,10 @@ func BenchmarkGroup(b *testing.B) {
 		}
 
 		// Register the handler and enqueue the jobs.
-		srv.RegisterTask(sampleHandler, handler, TaskOpts{Concurrency: concurrency})
+		err := srv.RegisterTask(sampleHandler, handler, TaskOpts{Concurrency: concurrency})
+		if err != nil {
+			b.Fatal(err)
+		}
 		for i := 0; i < num; i++ {
 			// Create a list of jobs to generate a group.
 			var jobs = make([]Job, jobNum)

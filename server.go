@@ -3,6 +3,7 @@ package tasqueue
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"sync"
 	"time"
 
@@ -16,8 +17,6 @@ import (
 )
 
 const (
-	defaultConcurrency = 1
-
 	// This is the initial state when a job is pushed onto the broker.
 	StatusStarted = "queued"
 
@@ -63,17 +62,36 @@ type TaskOpts struct {
 
 // RegisterTask maps a new task against the tasks map on the server.
 // It accepts different options for the task (to set callbacks).
-func (s *Server) RegisterTask(name string, fn handler, opts TaskOpts) {
+func (s *Server) RegisterTask(name string, fn handler, opts TaskOpts) error {
 	s.log.Info("added handler", "name", name)
 
-	if opts.Concurrency <= 0 {
-		opts.Concurrency = defaultConcurrency
-	}
 	if opts.Queue == "" {
 		opts.Queue = DefaultQueue
 	}
+	if opts.Concurrency <= 0 {
+		opts.Concurrency = uint32(s.defaultConc)
+	}
 
-	s.registerHandler(name, Task{name: name, handler: fn, opts: opts})
+	s.q.RLock()
+	conc, ok := s.queues[opts.Queue]
+	s.q.RUnlock()
+	if !ok {
+		s.registerQueue(opts.Queue, opts.Concurrency)
+		s.registerHandler(name, Task{name: name, handler: fn, opts: opts})
+
+		return nil
+
+	}
+
+	// If the queue is already defined and the passed concurrency optional
+	// is same (it can be default queue/conc) so simply register the handler
+	if opts.Concurrency == conc {
+		s.registerHandler(name, Task{name: name, handler: fn, opts: opts})
+		return nil
+	}
+
+	// If queue is already registered but a new conc was defined, return an err
+	return fmt.Errorf("queue is already defined with %d concurrency", conc)
 }
 
 // Server is the main store that holds the broker and the results communication interfaces.
@@ -85,8 +103,12 @@ type Server struct {
 	cron      *cron.Cron
 	traceProv *trace.TracerProvider
 
-	p     sync.RWMutex
-	tasks map[string]Task
+	p      sync.RWMutex
+	tasks  map[string]Task
+	q      sync.RWMutex
+	queues map[string]uint32
+
+	defaultConc int
 }
 
 type ServerOpts struct {
@@ -109,12 +131,14 @@ func NewServer(o ServerOpts) (*Server, error) {
 	}
 
 	return &Server{
-		traceProv: o.TraceProvider,
-		log:       o.Logger,
-		cron:      cron.New(),
-		broker:    o.Broker,
-		results:   o.Results,
-		tasks:     make(map[string]Task),
+		traceProv:   o.TraceProvider,
+		log:         o.Logger,
+		cron:        cron.New(),
+		broker:      o.Broker,
+		results:     o.Results,
+		tasks:       make(map[string]Task),
+		defaultConc: runtime.GOMAXPROCS(0),
+		queues:      make(map[string]uint32),
 	}, nil
 }
 
@@ -182,28 +206,27 @@ func (s *Server) GetSuccess(ctx context.Context) ([]string, error) {
 // Start() starts the job consumer and processor. It is a blocking function.
 func (s *Server) Start(ctx context.Context) {
 	go s.cron.Start()
-	// Loop over each registered task.
-	s.p.RLock()
-	tasks := s.tasks
-	s.p.RUnlock()
+	// Loop over each registered queue.
+	s.q.RLock()
+	queues := s.queues
+	s.q.RUnlock()
 
 	var wg sync.WaitGroup
-	for _, task := range tasks {
+	for q, conc := range queues {
 		if s.traceProv != nil {
 			var span spans.Span
 			ctx, span = otel.Tracer(tracer).Start(ctx, "start")
 			defer span.End()
 		}
 
-		task := task
 		work := make(chan []byte)
 		wg.Add(1)
 		go func() {
-			s.consume(ctx, work, task.opts.Queue)
+			s.consume(ctx, work, q)
 			wg.Done()
 		}()
 
-		for i := 0; i < int(task.opts.Concurrency); i++ {
+		for i := 0; i < int(conc); i++ {
 			wg.Add(1)
 			go func() {
 				s.process(ctx, work)
@@ -394,6 +417,12 @@ func (s *Server) retryJob(ctx context.Context, msg JobMessage) error {
 	}
 
 	return nil
+}
+
+func (s *Server) registerQueue(name string, conc uint32) {
+	s.q.Lock()
+	s.queues[name] = conc
+	s.q.Unlock()
 }
 
 func (s *Server) registerHandler(name string, t Task) {
