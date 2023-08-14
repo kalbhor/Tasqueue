@@ -413,7 +413,9 @@ A result is arbitrary `[]byte` data saved by a handler or callback via `JobCtx.S
 
 #### Get Result
 
-```go
+If the `jobID` does not exist, `ErrNotFound` will be returned
+
+```go 
 b, err := srv.GetResult(ctx, jobID)
 if err != nil {
 	log.Fatal(err)

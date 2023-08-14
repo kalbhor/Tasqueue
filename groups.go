@@ -147,7 +147,7 @@ func (s *Server) setGroupMessage(ctx context.Context, g GroupMessage) error {
 }
 
 func (s *Server) getGroupMessage(ctx context.Context, id string) (GroupMessage, error) {
-	b, err := s.results.Get(ctx, groupPrefix+id)
+	b, err := s.GetResult(ctx, groupPrefix+id)
 	if err != nil {
 		return GroupMessage{}, err
 	}

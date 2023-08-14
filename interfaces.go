@@ -7,6 +7,8 @@ import (
 
 type Results interface {
 	Get(ctx context.Context, id string) ([]byte, error)
+	// NilError is used to check internally if the "id" is missing
+	NilError() error
 	Set(ctx context.Context, id string, b []byte) error
 	// DeleteJob removes the job's saved metadata from the store
 	DeleteJob(ctx context.Context, id string) error

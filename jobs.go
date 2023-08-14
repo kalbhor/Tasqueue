@@ -256,7 +256,7 @@ func (s *Server) GetJob(ctx context.Context, id string) (JobMessage, error) {
 		defer span.End()
 	}
 
-	b, err := s.results.Get(ctx, jobPrefix+id)
+	b, err := s.GetResult(ctx, jobPrefix+id)
 	if err != nil {
 		s.spanError(span, err)
 		return JobMessage{}, err

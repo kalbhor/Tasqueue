@@ -2,7 +2,6 @@ package redis
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -128,9 +127,13 @@ func (r *Results) Get(ctx context.Context, id string) ([]byte, error) {
 	r.lo.Debug("getting result for job", "id", id)
 
 	rs, err := r.conn.Get(ctx, resultPrefix+id).Bytes()
-	if err != nil && !errors.Is(err, redis.Nil) {
+	if err != nil {
 		return nil, err
 	}
 
 	return rs, nil
+}
+
+func (r *Results) NilError() error {
+	return redis.Nil
 }
