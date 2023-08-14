@@ -28,9 +28,9 @@ func newServer(t *testing.T, taskName string, handler func([]byte, JobCtx) error
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv.RegisterTask(taskName, handler, TaskOpts{
-		Concurrency: 5,
-	})
+	if err := srv.RegisterTask(taskName, handler, TaskOpts{}); err != nil {
+		t.Fatal(err)
+	}
 
 	return srv
 }

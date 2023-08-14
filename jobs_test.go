@@ -143,7 +143,10 @@ func TestSaveJob(t *testing.T) {
 	)
 
 	// Register the task and handler
-	srv.RegisterTask("validate-save", handler, TaskOpts{})
+	err := srv.RegisterTask("validate-save", handler, TaskOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create a job that passes the data needed to be saved.
 	job, err := NewJob("validate-save", []byte(savedData), JobOpts{MaxRetries: 1})
@@ -188,7 +191,10 @@ func TestDeleteJob(t *testing.T) {
 	)
 
 	// Register the task and handler
-	srv.RegisterTask("validate-save", handler, TaskOpts{})
+	err := srv.RegisterTask("validate-save", handler, TaskOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create a job that passes the data needed to be saved.
 	job, err := NewJob("validate-save", []byte(savedData), JobOpts{MaxRetries: 1})

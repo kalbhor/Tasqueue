@@ -105,9 +105,12 @@ func main() {
 ```
 
 #### Task Options
+Queue is the name defined onto which the specific task will be enqueued. By default the value is "default:queue". Queues can be 
+shared between tasks.
 
-Concurrency is the number of processors run for this task. Queue is the queue to consume for this task.
-Task options contains callbacks that are executed one a state change.
+Concurrency defines the number of processor go-routines running on the queue. By default this number is equal
+to `runtime.GOMAXPROCS()` (number of CPUs on the system). Ideally, it is recommended that the client tweak this number according
+to their task.
 
 ```go
 type TaskOpts struct {
@@ -162,8 +165,34 @@ func SumProcessor(b []byte, m tasqueue.JobCtx) error {
 }
 ```
 
+Once a queue is created if the client creates a task with an existing queue but supplies a different concurrency 
+in the `TaskOpts`, then `RegisterTask` will return an error.
+
 ```go
-srv.RegisterTask("add", tasks.SumProcessor, TaskOpts{Concurrency: 5})
+// This creates the q1 queue if it doesn't exist and assigns 5 concurrency to it
+err := srv.RegisterTask("add", tasks.SumProcessor, TaskOpts{Queue:"q1", Concurrency: 5})
+if err != nil {
+	log.Fatal(err)
+}
+
+// No error
+err := srv.RegisterTask("div", tasks.DivProcessor, TaskOpts{Queue:"q1"})
+if err != nil {
+	log.Fatal(err)
+}
+
+// No error
+err := srv.RegisterTask("sub", tasks.SubProcessor, TaskOpts{Queue:"q1", Concurrency: 5})
+if err != nil {
+	log.Fatal(err)
+}
+
+// This will return an error since q1 is already created and its concurrency cannot be modified. To re-use
+// "q1", omit the concurrency field or supply the same one as before as above
+err := srv.RegisterTask("multiplication", tasks.MulProcessor, TaskOpts{Queue:"q1", Concurrency: 10})
+if err != nil {
+	log.Fatal(err)
+}
 ```
 
 #### Start server
