@@ -105,12 +105,12 @@ func main() {
 ```
 
 #### Task Options
-Queue is the name defined onto which the specific task will be enqueued. By default the value is "default:queue". Queues can be 
+Queue is the name of the queue assigned to the task. By default the value is "tasqueue:tasks". Queues can be 
 shared between tasks.
 
 Concurrency defines the number of processor go-routines running on the queue. By default this number is equal
-to `runtime.GOMAXPROCS()` (number of CPUs on the system). Ideally, it is recommended that the client tweak this number according
-to their task.
+to `runtime.GOMAXPROCS(0)` (number of CPUs on the system). Ideally, it is recommended that the client tweak this number according
+to their tasks.
 
 ```go
 type TaskOpts struct {
@@ -187,8 +187,7 @@ if err != nil {
 	log.Fatal(err)
 }
 
-// This will return an error since q1 is already created and its concurrency cannot be modified. To re-use
-// "q1", omit the concurrency field or supply the same one as before as above
+// This will return an error since q1 is already created and its concurrency cannot be modified
 err := srv.RegisterTask("multiplication", tasks.MulProcessor, TaskOpts{Queue:"q1", Concurrency: 10})
 if err != nil {
 	log.Fatal(err)
