@@ -1,3 +1,3 @@
-module github.com/kalbhor/tasqueue/v2/brokers/in-memory
+module github.com/kalbhor/tasqueue/brokers/in-memory
 
 go 1.20

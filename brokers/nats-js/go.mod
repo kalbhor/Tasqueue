@@ -1,4 +1,4 @@
-module github.com/kalbhor/tasqueue/v2/brokers/nats-js
+module github.com/kalbhor/tasqueue/brokers/nats-js
 
 go 1.20
 

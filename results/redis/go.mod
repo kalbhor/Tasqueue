@@ -1,4 +1,4 @@
-module github.com/kalbhor/tasqueue/v2/results/redis
+module github.com/kalbhor/tasqueue/results/redis
 
 go 1.20
 

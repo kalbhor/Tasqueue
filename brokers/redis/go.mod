@@ -1,4 +1,4 @@
-module github.com/kalbhor/tasqueue/v2/brokers/redis
+module github.com/kalbhor/tasqueue/brokers/redis
 
 go 1.20
 
