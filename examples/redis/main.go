@@ -26,9 +26,10 @@ func main() {
 			DB:       0,
 		}, lo),
 		Results: rr.New(rr.Options{
-			Addrs:    []string{"127.0.0.1:6379"},
-			Password: "",
-			DB:       0,
+			Addrs:      []string{"127.0.0.1:6379"},
+			Password:   "",
+			DB:         0,
+			MetaExpiry: time.Second * 5,
 		}, lo),
 		Logger: lo,
 	})
@@ -41,28 +42,33 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var group []tasqueue.Job
+	go srv.Start(ctx)
 
-	for i := 0; i < 3; i++ {
-		b, _ := json.Marshal(tasks.SumPayload{Arg1: i, Arg2: 4})
-		task, err := tasqueue.NewJob("add", b, tasqueue.JobOpts{})
-		if err != nil {
-			log.Fatal(err)
-		}
-		group = append(group, task)
+	b, _ := json.Marshal(tasks.SumPayload{Arg1: 5, Arg2: 4})
+	task, err := tasqueue.NewJob("add", b, tasqueue.JobOpts{})
+	if err != nil {
+		log.Fatal(err)
 	}
+	srv.Enqueue(ctx, task)
 
-	t, _ := tasqueue.NewGroup(group, tasqueue.GroupOpts{})
-	x, _ := srv.EnqueueGroup(ctx, t)
-	go func() {
-		for {
-			select {
-			case <-time.Tick(time.Second * 1):
-				fmt.Println(srv.GetGroup(ctx, x))
+	b, _ = json.Marshal(tasks.SumPayload{Arg1: 5, Arg2: 4})
+	task, err = tasqueue.NewJob("add", b, tasqueue.JobOpts{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	srv.Enqueue(ctx, task)
+	fmt.Println("exit..")
+	for {
+		select {
+		case <-time.NewTicker(time.Second * 1).C:
+			ids, err := srv.GetSuccess(ctx)
+			if err != nil {
+				log.Fatal(err)
 			}
+
+			log.Println(ids)
 		}
-	}()
-	srv.Start(ctx)
+	}
 
 	// Create a task payload.
 	fmt.Println("exit..")

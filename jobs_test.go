@@ -219,7 +219,7 @@ func TestDeleteJob(t *testing.T) {
 	}
 
 	if string(results) != savedData {
-		t.Fatalf("saved results don't match results fetched.\nsaved:%v\nfetched:%v", savedData, results)
+		t.Fatalf("saved results don't match results fetched.\nsaved:%v\nfetched:%v", savedData, string(results))
 	}
 
 	if err := srv.DeleteJob(ctx, uuid); err != nil {

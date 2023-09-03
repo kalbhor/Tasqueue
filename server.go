@@ -64,7 +64,7 @@ type TaskOpts struct {
 // RegisterTask maps a new task against the tasks map on the server.
 // It accepts different options for the task (to set callbacks).
 func (s *Server) RegisterTask(name string, fn handler, opts TaskOpts) error {
-	s.log.Info("added handler", "name", name)
+	s.log.Debug("registered handler", "name", name, "options", opts)
 
 	if opts.Queue == "" {
 		opts.Queue = DefaultQueue
@@ -247,14 +247,14 @@ func (s *Server) Start(ctx context.Context) {
 
 // consume() listens on the queue for task messages and passes the task to processor.
 func (s *Server) consume(ctx context.Context, work chan []byte, queue string) {
-	s.log.Info("starting task consumer..")
+	s.log.Debug("starting task consumer..")
 	s.broker.Consume(ctx, work, queue)
 }
 
 // process() listens on the work channel for tasks. On receiving a task it checks the
 // processors map and passes payload to relevant processor.
 func (s *Server) process(ctx context.Context, w chan []byte) {
-	s.log.Info("starting processor..")
+	s.log.Debug("starting processor..")
 	for {
 		var span spans.Span
 		if s.traceProv != nil {

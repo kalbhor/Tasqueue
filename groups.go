@@ -82,7 +82,7 @@ func (s *Server) EnqueueGroup(ctx context.Context, t Group) (string, error) {
 func (s *Server) GetGroup(ctx context.Context, id string) (GroupMessage, error) {
 	g, err := s.getGroupMessage(ctx, id)
 	if err != nil {
-		return g, nil
+		return g, err
 	}
 	// If the group status is either "done" or "failed".
 	// Do an early return
