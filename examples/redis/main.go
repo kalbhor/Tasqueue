@@ -9,10 +9,10 @@ import (
 	"os/signal"
 	"time"
 
+	rb "github.com/kalbhor/tasqueue/brokers/redis"
+	rr "github.com/kalbhor/tasqueue/results/redis"
 	"github.com/kalbhor/tasqueue/v2"
-	rb "github.com/kalbhor/tasqueue/v2/brokers/redis"
 	"github.com/kalbhor/tasqueue/v2/examples/tasks"
-	rr "github.com/kalbhor/tasqueue/v2/results/redis"
 	"github.com/zerodha/logf"
 )
 

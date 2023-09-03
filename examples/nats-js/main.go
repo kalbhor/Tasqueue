@@ -8,10 +8,10 @@ import (
 	"os"
 	"os/signal"
 
+	nats_broker "github.com/kalbhor/tasqueue/brokers/nats-js"
+	nats_result "github.com/kalbhor/tasqueue/results/nats-js"
 	"github.com/kalbhor/tasqueue/v2"
-	nats_broker "github.com/kalbhor/tasqueue/v2/brokers/nats-js"
 	"github.com/kalbhor/tasqueue/v2/examples/tasks"
-	nats_result "github.com/kalbhor/tasqueue/v2/results/nats-js"
 	"github.com/zerodha/logf"
 )
 
