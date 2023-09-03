@@ -163,7 +163,7 @@ func TestSaveJob(t *testing.T) {
 	}
 
 	// Wait for task to be consumed & processed.
-	time.Sleep(time.Second)
+	time.Sleep(time.Second * 2)
 
 	results, err := srv.GetResult(ctx, uuid)
 	if err != nil {
@@ -219,7 +219,7 @@ func TestDeleteJob(t *testing.T) {
 	}
 
 	if string(results) != savedData {
-		t.Fatalf("saved results don't match results fetched.\nsaved:%v\nfetched:%v", savedData, results)
+		t.Fatalf("saved results don't match results fetched.\nsaved:%v\nfetched:%v", savedData, string(results))
 	}
 
 	if err := srv.DeleteJob(ctx, uuid); err != nil {

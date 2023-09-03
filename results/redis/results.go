@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -9,8 +10,7 @@ import (
 )
 
 const (
-	defaultExpiry = 0
-	resultPrefix  = "tasqueue:results:"
+	resultPrefix = "tq:res:"
 
 	// Suffix for hashmaps storing success/failed job ids
 	success = "success"
@@ -31,6 +31,8 @@ type Options struct {
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 	IdleTimeout  time.Duration
+	Expiry       time.Duration
+	MetaExpiry   time.Duration
 	MinIdleConns int
 }
 
@@ -43,7 +45,7 @@ func DefaultRedis() Options {
 }
 
 func New(o Options, lo logf.Logger) *Results {
-	return &Results{
+	rs := &Results{
 		opt: o,
 		conn: redis.NewUniversalClient(
 			&redis.UniversalOptions{
@@ -59,16 +61,13 @@ func New(o Options, lo logf.Logger) *Results {
 		),
 		lo: lo,
 	}
-}
 
-func (r *Results) GetSuccess(ctx context.Context) ([]string, error) {
-	r.lo.Debug("getting successful jobs")
-	rs, err := r.conn.LRange(ctx, resultPrefix+success, 0, -1).Result()
-	if err != nil {
-		return nil, err
+	// TODO: pass ctx here somehow
+	if o.MetaExpiry != 0 {
+		go rs.expireMeta(o.MetaExpiry)
 	}
 
-	return rs, nil
+	return rs
 }
 
 func (r *Results) DeleteJob(ctx context.Context, id string) error {
@@ -88,9 +87,27 @@ func (r *Results) DeleteJob(ctx context.Context, id string) error {
 	return nil
 }
 
+func (r *Results) GetSuccess(ctx context.Context) ([]string, error) {
+	// Fetch the failed tasks with score less than current time
+	r.lo.Debug("getting successful jobs")
+	rs, err := r.conn.ZRevRangeByScore(ctx, resultPrefix+success, &redis.ZRangeBy{
+		Min: "0",
+		Max: strconv.FormatInt(time.Now().UnixNano(), 10),
+	}).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	return rs, nil
+}
+
 func (r *Results) GetFailed(ctx context.Context) ([]string, error) {
+	// Fetch the failed tasks with score less than current time
 	r.lo.Debug("getting failed jobs")
-	rs, err := r.conn.LRange(ctx, resultPrefix+failed, 0, -1).Result()
+	rs, err := r.conn.ZRevRangeByScore(ctx, resultPrefix+failed, &redis.ZRangeBy{
+		Min: "0",
+		Max: strconv.FormatInt(time.Now().UnixNano(), 10),
+	}).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -99,28 +116,24 @@ func (r *Results) GetFailed(ctx context.Context) ([]string, error) {
 }
 
 func (r *Results) SetSuccess(ctx context.Context, id string) error {
-	r.lo.Debug("setting job as successful")
-	_, err := r.conn.RPush(ctx, resultPrefix+success, id).Result()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	r.lo.Debug("setting job as successful", "id", id)
+	return r.conn.ZAdd(ctx, resultPrefix+success, &redis.Z{
+		Score:  float64(time.Now().UnixNano()),
+		Member: id,
+	}).Err()
 }
 
 func (r *Results) SetFailed(ctx context.Context, id string) error {
-	r.lo.Debug("setting job as failed")
-	_, err := r.conn.RPush(ctx, resultPrefix+failed, id).Result()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	r.lo.Debug("setting job as failed", "id", id)
+	return r.conn.ZAdd(ctx, resultPrefix+failed, &redis.Z{
+		Score:  float64(time.Now().UnixNano()),
+		Member: id,
+	}).Err()
 }
 
 func (r *Results) Set(ctx context.Context, id string, b []byte) error {
 	r.lo.Debug("setting result for job", "id", id)
-	return r.conn.Set(ctx, resultPrefix+id, b, defaultExpiry).Err()
+	return r.conn.Set(ctx, resultPrefix+id, b, r.opt.Expiry).Err()
 }
 
 func (r *Results) Get(ctx context.Context, id string) ([]byte, error) {
@@ -132,6 +145,36 @@ func (r *Results) Get(ctx context.Context, id string) ([]byte, error) {
 	}
 
 	return rs, nil
+}
+
+// TODO: accpet a ctx here and shutdown gracefully
+func (r *Results) expireMeta(ttl time.Duration) {
+	r.lo.Info("starting results meta purger", "ttl", ttl)
+
+	var (
+		tk = time.NewTicker(ttl)
+	)
+
+	for {
+		select {
+		// case <-ctx.Done():
+		// 	r.lo.Info("shutting down meta purger", "ttl", ttl)
+		// 	return
+		case <-tk.C:
+			now := time.Now().UnixNano() - int64(ttl)
+			score := strconv.FormatInt(now, 10)
+
+			r.lo.Debug("purging failed results metadata", "score", score)
+			if err := r.conn.ZRemRangeByScore(context.Background(), resultPrefix+failed, "0", score).Err(); err != nil {
+				r.lo.Error("could not expire success/failed metadata", "err", err)
+			}
+
+			r.lo.Debug("purging success results metadata", "score", score)
+			if err := r.conn.ZRemRangeByScore(context.Background(), resultPrefix+success, "0", score).Err(); err != nil {
+				r.lo.Error("could not expire success/failed metadata", "err", err)
+			}
+		}
+	}
 }
 
 func (r *Results) NilError() error {
