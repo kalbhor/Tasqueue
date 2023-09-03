@@ -1,5 +1,6 @@
 module github.com/kalbhor/tasqueue/brokers/nats-js
 
+
 go 1.20
 
 require (
