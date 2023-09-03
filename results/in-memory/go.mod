@@ -1,3 +1,4 @@
-module github.com/kalbhor/tasqueue/v2/results/in-memory
+module github.com/kalbhor/tasqueue/results/in-memory
+
 
 go 1.20

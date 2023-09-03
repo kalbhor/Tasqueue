@@ -1,4 +1,5 @@
-module github.com/kalbhor/tasqueue/v2/results/nats-js
+module github.com/kalbhor/tasqueue/results/nats-js
+
 
 go 1.20
 
