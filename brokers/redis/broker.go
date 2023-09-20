@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/zerodha/logf"
 )
 
 const (
@@ -29,12 +29,12 @@ type Options struct {
 }
 
 type Broker struct {
-	log        logf.Logger
+	log        *slog.Logger
 	conn       redis.UniversalClient
 	pollPeriod time.Duration
 }
 
-func New(o Options, lo logf.Logger) *Broker {
+func New(o Options, lo *slog.Logger) *Broker {
 	pollPeriod := o.PollPeriod
 	if o.PollPeriod == 0 {
 		pollPeriod = DefaultPollPeriod

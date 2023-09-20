@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"time"
@@ -14,7 +15,6 @@ import (
 	rb "github.com/kalbhor/tasqueue/v2/brokers/in-memory"
 	"github.com/kalbhor/tasqueue/v2/examples/tasks"
 	rr "github.com/kalbhor/tasqueue/v2/results/in-memory"
-	"github.com/zerodha/logf"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
@@ -78,7 +78,7 @@ func main() {
 	srv, err := tasqueue.NewServer(tasqueue.ServerOpts{
 		Broker:        rb.New(),
 		Results:       rr.New(),
-		Logger:        logf.New(logf.Opts{}),
+		Logger:        slog.Default().Handler(),
 		TraceProvider: tp,
 	})
 	if err != nil {

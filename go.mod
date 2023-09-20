@@ -1,6 +1,6 @@
 module github.com/kalbhor/tasqueue/v2
 
-go 1.18
+go 1.21
 
 require (
 	github.com/go-redis/redis v6.15.9+incompatible
@@ -9,7 +9,6 @@ require (
 	github.com/nats-io/nats.go v1.28.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/vmihailenco/msgpack/v5 v5.3.5
-	github.com/zerodha/logf v0.5.5
 	go.opentelemetry.io/otel v1.9.0
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.9.0
 	go.opentelemetry.io/otel/sdk v1.9.0
@@ -26,6 +25,7 @@ require (
 	github.com/nats-io/nats-server/v2 v2.9.21 // indirect
 	github.com/nats-io/nkeys v0.4.4 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
+	github.com/stretchr/testify v1.8.0 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	golang.org/x/crypto v0.11.0 // indirect
 	golang.org/x/sys v0.10.0 // indirect

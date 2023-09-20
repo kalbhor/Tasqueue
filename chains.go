@@ -2,10 +2,10 @@ package tasqueue
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // ChainMeta contains fields related to a chain job.
@@ -135,7 +135,7 @@ checkJobs:
 const chainPrefix = "chain:msg:"
 
 func (s *Server) setChainMessage(ctx context.Context, c ChainMessage) error {
-	b, err := json.Marshal(c)
+	b, err := msgpack.Marshal(c)
 	if err != nil {
 		return err
 	}
@@ -149,7 +149,7 @@ func (s *Server) getChainMessage(ctx context.Context, id string) (ChainMessage, 
 	}
 
 	var c ChainMessage
-	if err := json.Unmarshal(b, &c); err != nil {
+	if err := msgpack.Unmarshal(b, &c); err != nil {
 		return ChainMessage{}, err
 	}
 

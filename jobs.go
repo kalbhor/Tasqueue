@@ -2,7 +2,6 @@ package tasqueue
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -234,7 +233,7 @@ func (s *Server) setJobMessage(ctx context.Context, t JobMessage) error {
 		defer span.End()
 	}
 
-	b, err := json.Marshal(t)
+	b, err := msgpack.Marshal(t)
 	if err != nil {
 		s.spanError(span, err)
 		return fmt.Errorf("could not set job message in store : %w", err)
@@ -263,7 +262,7 @@ func (s *Server) GetJob(ctx context.Context, id string) (JobMessage, error) {
 	}
 
 	var t JobMessage
-	if err := json.Unmarshal(b, &t); err != nil {
+	if err := msgpack.Unmarshal(b, &t); err != nil {
 		s.spanError(span, err)
 		return JobMessage{}, err
 	}

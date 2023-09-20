@@ -3,10 +3,9 @@ package tasqueue
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"testing"
 	"time"
-
-	"github.com/zerodha/logf"
 
 	rb "github.com/kalbhor/tasqueue/v2/brokers/in-memory"
 	rr "github.com/kalbhor/tasqueue/v2/results/in-memory"
@@ -17,9 +16,7 @@ const (
 )
 
 func newServer(t *testing.T, taskName string, handler func([]byte, JobCtx) error) *Server {
-	lo := logf.New(logf.Opts{
-		Level: logf.DebugLevel,
-	})
+	lo := slog.Default().Handler()
 	srv, err := NewServer(ServerOpts{
 		Broker:  rb.New(),
 		Results: rr.New(),

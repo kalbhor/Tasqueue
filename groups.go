@@ -2,10 +2,10 @@ package tasqueue
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Group struct {
@@ -139,7 +139,7 @@ func getGroupStatus(jobStatus map[string]string) string {
 const groupPrefix = "group:msg:"
 
 func (s *Server) setGroupMessage(ctx context.Context, g GroupMessage) error {
-	b, err := json.Marshal(g)
+	b, err := msgpack.Marshal(g)
 	if err != nil {
 		return err
 	}
@@ -153,7 +153,7 @@ func (s *Server) getGroupMessage(ctx context.Context, id string) (GroupMessage, 
 	}
 
 	var g GroupMessage
-	if err := json.Unmarshal(b, &g); err != nil {
+	if err := msgpack.Unmarshal(b, &g); err != nil {
 		return GroupMessage{}, err
 	}
 
