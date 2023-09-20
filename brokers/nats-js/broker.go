@@ -3,16 +3,16 @@ package nats
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/nats-io/nats.go"
-	"github.com/zerodha/logf"
 )
 
 // Broker is a nats-jetstream based broker implementation.
 type Broker struct {
 	opt  Options
-	log  logf.Logger
+	log  *slog.Logger
 	conn nats.JetStreamContext
 }
 
@@ -27,7 +27,7 @@ type Options struct {
 }
 
 // New() returns a new instance of nats-jetstream broker.
-func New(cfg Options, lo logf.Logger) (*Broker, error) {
+func New(cfg Options, lo *slog.Logger) (*Broker, error) {
 	opt := []nats.Option{}
 
 	if cfg.EnabledAuth {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"time"
@@ -13,12 +14,11 @@ import (
 	rb "github.com/kalbhor/tasqueue/v2/brokers/redis"
 	"github.com/kalbhor/tasqueue/v2/examples/tasks"
 	rr "github.com/kalbhor/tasqueue/v2/results/redis"
-	"github.com/zerodha/logf"
 )
 
 func main() {
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
-	lo := logf.New(logf.Opts{})
+	lo := slog.Default()
 	srv, err := tasqueue.NewServer(tasqueue.ServerOpts{
 		Broker: rb.New(rb.Options{
 			Addrs:    []string{"127.0.0.1:6379"},
@@ -31,7 +31,7 @@ func main() {
 			DB:         0,
 			MetaExpiry: time.Second * 5,
 		}, lo),
-		Logger: lo,
+		Logger: lo.Handler(),
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -70,6 +70,4 @@ func main() {
 		}
 	}
 
-	// Create a task payload.
-	fmt.Println("exit..")
 }

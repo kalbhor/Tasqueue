@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 
@@ -12,12 +13,11 @@ import (
 	nats_broker "github.com/kalbhor/tasqueue/v2/brokers/nats-js"
 	"github.com/kalbhor/tasqueue/v2/examples/tasks"
 	nats_result "github.com/kalbhor/tasqueue/v2/results/nats-js"
-	"github.com/zerodha/logf"
 )
 
 func main() {
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
-	lo := logf.New(logf.Opts{})
+	lo := slog.Default()
 	brkr, err := nats_broker.New(nats_broker.Options{
 		URL:         "localhost:4222",
 		EnabledAuth: false,
@@ -40,7 +40,7 @@ func main() {
 	srv, err := tasqueue.NewServer(tasqueue.ServerOpts{
 		Broker:  brkr,
 		Results: res,
-		Logger:  logf.New(logf.Opts{}),
+		Logger:  lo.Handler(),
 	})
 	if err != nil {
 		log.Fatal(err)

@@ -3,13 +3,13 @@ package tasqueue
 import (
 	"context"
 	"log"
+	"log/slog"
 	"sync"
 	"testing"
 
 	"github.com/go-redis/redis"
 	rb "github.com/kalbhor/tasqueue/v2/brokers/redis"
 	rr "github.com/kalbhor/tasqueue/v2/results/redis"
-	"github.com/zerodha/logf"
 )
 
 // The benchmarks use redis as results & broker.
@@ -32,10 +32,7 @@ func newJob(b *testing.B) Job {
 
 // serverWithRedis returns a tasqueue server with redis as broker and results.
 func serverWithRedis(b *testing.B) *Server {
-	lo := logf.New(logf.Opts{
-		Level:       logf.FatalLevel,
-		EnableColor: true,
-	})
+	lo := slog.Default()
 	srv, err := NewServer(ServerOpts{
 		Broker: rb.New(rb.Options{
 			Addrs:    []string{redisAddr},
@@ -47,7 +44,7 @@ func serverWithRedis(b *testing.B) *Server {
 			Password: redisPass,
 			DB:       redisDB,
 		}, lo),
-		Logger: lo,
+		Logger: lo.Handler(),
 	})
 	if err != nil {
 		b.Fatal(err)

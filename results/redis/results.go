@@ -2,11 +2,11 @@ package redis
 
 import (
 	"context"
+	"log/slog"
 	"strconv"
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/zerodha/logf"
 )
 
 const (
@@ -19,7 +19,7 @@ const (
 
 type Results struct {
 	opt  Options
-	lo   logf.Logger
+	lo   *slog.Logger
 	conn redis.UniversalClient
 }
 
@@ -44,7 +44,7 @@ func DefaultRedis() Options {
 	}
 }
 
-func New(o Options, lo logf.Logger) *Results {
+func New(o Options, lo *slog.Logger) *Results {
 	rs := &Results{
 		opt: o,
 		conn: redis.NewUniversalClient(

@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"runtime"
 	"sync"
 	"time"
 
 	"github.com/robfig/cron/v3"
 	"github.com/vmihailenco/msgpack/v5"
-	"github.com/zerodha/logf"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/sdk/trace"
@@ -98,7 +98,7 @@ func (s *Server) RegisterTask(name string, fn handler, opts TaskOpts) error {
 // Server is the main store that holds the broker and the results communication interfaces.
 // It also stores the registered tasks.
 type Server struct {
-	log       logf.Logger
+	log       *slog.Logger
 	broker    Broker
 	results   Results
 	cron      *cron.Cron
@@ -115,7 +115,7 @@ type Server struct {
 type ServerOpts struct {
 	Broker        Broker
 	Results       Results
-	Logger        logf.Logger
+	Logger        slog.Handler
 	TraceProvider *trace.TracerProvider
 }
 
@@ -127,13 +127,13 @@ func NewServer(o ServerOpts) (*Server, error) {
 	if o.Results == nil {
 		return nil, fmt.Errorf("results missing in options")
 	}
-	if o.Logger.Level == 0 {
-		o.Logger = logf.New(logf.Opts{})
+	if o.Logger == nil {
+		o.Logger = slog.Default().Handler()
 	}
 
 	return &Server{
 		traceProv:   o.TraceProvider,
-		log:         o.Logger,
+		log:         slog.New(o.Logger),
 		cron:        cron.New(),
 		broker:      o.Broker,
 		results:     o.Results,
