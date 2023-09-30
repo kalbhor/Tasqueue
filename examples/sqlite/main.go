@@ -26,7 +26,7 @@ func main() {
 		log.Fatal(err)
 	}
 	results, err := sqr.New(sqr.Options{
-		DataSource: "results",
+		DataSource: "results.db",
 	}, lo)
 	if err != nil {
 		log.Fatal(err)
