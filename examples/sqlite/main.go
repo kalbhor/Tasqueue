@@ -52,14 +52,20 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	srv.Enqueue(ctx, task)
+	_, err = srv.Enqueue(ctx, task)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	b, _ = json.Marshal(tasks.SumPayload{Arg1: 5, Arg2: 4})
 	task, err = tasqueue.NewJob("add", b, tasqueue.JobOpts{})
 	if err != nil {
 		log.Fatal(err)
 	}
-	srv.Enqueue(ctx, task)
+	_, err = srv.Enqueue(ctx, task)
+	if err != nil {
+		log.Fatal(err)
+	}
 	fmt.Println("exit..")
 	for {
 		select {
