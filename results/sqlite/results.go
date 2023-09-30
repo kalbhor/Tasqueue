@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Results struct {

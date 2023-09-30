@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"time"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Broker struct {
