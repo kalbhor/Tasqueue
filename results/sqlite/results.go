@@ -9,6 +9,15 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+type ResultStatus string
+
+const (
+	QUEUED     ResultStatus = "QUEUED"
+	PROCESSING ResultStatus = "PROCESSING"
+	FAILED     ResultStatus = "FAILED"
+	COMPLETED  ResultStatus = "COMPLETED"
+)
+
 type Results struct {
 	db  *sql.DB
 	log *slog.Logger
