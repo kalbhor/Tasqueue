@@ -6,6 +6,7 @@ require (
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/google/uuid v1.3.0
+	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/nats-io/nats.go v1.28.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/vmihailenco/msgpack/v5 v5.3.5
@@ -22,7 +23,6 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/klauspost/compress v1.16.7 // indirect
-	github.com/mattn/go-sqlite3 v1.14.17 // indirect
 	github.com/nats-io/nats-server/v2 v2.9.21 // indirect
 	github.com/nats-io/nkeys v0.4.4 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
