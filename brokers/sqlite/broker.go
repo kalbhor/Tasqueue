@@ -10,6 +10,15 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+type JobStatus string
+
+const (
+	QUEUED     JobStatus = "QUEUED"
+	PROCESSING JobStatus = "PROCESSING"
+	FAILED     JobStatus = "FAILED"
+	COMPLETED  JobStatus = "COMPLETED"
+)
+
 type Broker struct {
 	db  *sql.DB
 	log *slog.Logger
