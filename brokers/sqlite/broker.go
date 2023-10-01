@@ -8,6 +8,9 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/vmihailenco/msgpack/v5"
+
+	"github.com/kalbhor/tasqueue/v2"
 )
 
 type JobStatus string
@@ -54,7 +57,38 @@ func New(options Options, lo *slog.Logger) (*Broker, error) {
 }
 
 func (broker *Broker) Enqueue(ctx context.Context, msg []byte, queue string) error {
-	return fmt.Errorf("Enqueue: not implemeted")
+	var job_msg tasqueue.JobMessage
+	if err := msgpack.Unmarshal(msg, &job_msg); err != nil {
+		return err
+	}
+	tx, err := broker.db.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		tx.Rollback()
+		broker.log.Debug("failed to begin the transaction", err)
+		return err
+	}
+	result, err := tx.Exec(`REPLACE INTO jobs(id,queue,msg,status) VALUES(?,?,?,?);`, job_msg.ID, queue, msg, job_msg.Status)
+	if err != nil {
+		tx.Rollback()
+		broker.log.Debug("failed to replace in jobs", err)
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		tx.Rollback()
+		broker.log.Debug("failed get affected rows jobs", err)
+		return err
+	}
+	if affected == 0 {
+		tx.Rollback()
+		broker.log.Debug("no rows affected")
+		return fmt.Errorf("failed to replace the job %s, %s", job_msg.ID, msg)
+	}
+	if err = tx.Commit(); err != nil {
+		broker.log.Debug("failed commit the transaction", err)
+		return err
+	}
+	return nil
 }
 
 func (broker *Broker) EnqueueScheduled(ctx context.Context, msg []byte, queue string, ts time.Time) error {
