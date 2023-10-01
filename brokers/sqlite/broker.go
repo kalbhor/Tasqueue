@@ -39,6 +39,7 @@ func New(options Options, lo *slog.Logger) (*Broker, error) {
             id VARCHAR PRIMARY KEY,
             queue VARCHAR NOT NULL,
             msg TEXT NOT NULL,
+            status VARCHAT NOT NULL,
             timestamp DATE DEFAULT(datetime('now', 'localtime'))
         );
     `)
