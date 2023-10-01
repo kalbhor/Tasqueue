@@ -7,6 +7,9 @@ import (
 	"log/slog"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/vmihailenco/msgpack/v5"
+
+	"github.com/kalbhor/tasqueue/v2"
 )
 
 type ResultStatus string
@@ -56,7 +59,33 @@ func (results *Results) NilError() error {
 }
 
 func (results *Results) Set(ctx context.Context, id string, b []byte) error {
-	return fmt.Errorf("Set: not implemented")
+	var msg tasqueue.JobMessage
+	if err := msgpack.Unmarshal(b, &msg); err != nil {
+		return err
+	}
+	tx, err := results.db.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return err
+	}
+	result, err := tx.Exec(`REPLACE INTO results(id,msg,status) VALUES(?,?,?);`, id, b, msg.Status)
+	if err != nil {
+		tx.Rollback()
+		return nil
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		tx.Rollback()
+		return nil
+	}
+	if affected == 0 {
+		tx.Rollback()
+		return fmt.Errorf("failed to replace into table %s, %s", id, b)
+	}
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (results *Results) DeleteJob(ctx context.Context, id string) error {
