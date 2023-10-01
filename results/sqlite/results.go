@@ -36,7 +36,8 @@ func New(options Options, lo *slog.Logger) (*Results, error) {
 	_, err = db.Exec(`
         CREATE TABLE IF NOT EXISTS results(
             id VARCHAR PRIMARY KEY,
-            msg TEXT NOT NULL
+            msg TEXT NOT NULL,
+            status VARCHAR NOT NULL
         );
     `)
 
