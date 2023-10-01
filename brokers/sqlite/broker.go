@@ -53,16 +53,16 @@ func New(options Options, lo *slog.Logger) (*Broker, error) {
 }
 
 func (broker *Broker) Enqueue(ctx context.Context, msg []byte, queue string) error {
-	return fmt.Errorf("not implemeted")
+	return fmt.Errorf("Enqueue: not implemeted")
 }
 
 func (broker *Broker) EnqueueScheduled(ctx context.Context, msg []byte, queue string, ts time.Time) error {
-	return fmt.Errorf("not implemeted")
+	return fmt.Errorf("EnqueueScheduled: not implemeted")
 }
 
 func (broker *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
 }
 
 func (broker *Broker) GetPending(ctx context.Context, queue string) ([]string, error) {
-	return nil, fmt.Errorf("not implemeted")
+	return nil, fmt.Errorf("GetPending: not implemeted")
 }
