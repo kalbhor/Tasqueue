@@ -109,7 +109,19 @@ func (results *Results) GetFailed(ctx context.Context) ([]string, error) {
 }
 
 func (results *Results) GetSuccess(ctx context.Context) ([]string, error) {
-	return nil, fmt.Errorf("GetSuccess: not implemented")
+	ids := make([]string, 0)
+	rows, err := results.db.QueryContext(ctx, `SELECT id FROM results WHERE status = ?;`, tasqueue.StatusDone)
+	if err != nil {
+		return ids, err
+	}
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			return ids, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 func (results *Results) SetFailed(ctx context.Context, id string) error {
@@ -129,5 +141,17 @@ func (results *Results) SetFailed(ctx context.Context, id string) error {
 }
 
 func (results *Results) SetSuccess(ctx context.Context, id string) error {
-	return fmt.Errorf("SetSuccess: not implemented")
+	tx, err := results.db.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(`UPDATE results SET status = ? WHERE id = ?;`, id, tasqueue.StatusDone)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	return nil
 }
