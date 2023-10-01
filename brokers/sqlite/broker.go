@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -91,13 +92,83 @@ func (broker *Broker) Enqueue(ctx context.Context, msg []byte, queue string) err
 	return nil
 }
 
-func (broker *Broker) EnqueueScheduled(ctx context.Context, msg []byte, queue string, ts time.Time) error {
-	return fmt.Errorf("EnqueueScheduled: not implemeted")
+func (broker *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
+	for {
+		select {
+		case <-ctx.Done():
+			broker.log.Debug("stopping the consumer")
+			return
+		default:
+			msg, err := broker.popJob(ctx, queue)
+			if err == nil {
+				work <- []byte(msg)
+			} else {
+				if err == NoJobToProcess {
+					broker.log.Debug("no jobs to process")
+				} else {
+					broker.log.Debug("failed to pop job", msg, err)
+					return
+				}
+			}
+		}
+	}
 }
 
-func (broker *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
+var NoJobToProcess = errors.New("no jobs to process")
+
+func (broker *Broker) popJob(ctx context.Context, queue string) (string, error) {
+	var msg string
+	tx, err := broker.db.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return msg, err
+	}
+	var id string
+	if err = tx.QueryRowContext(ctx, "SELECT id, msg FROM jobs WHERE queue = ? AND status = ?;", queue, tasqueue.StatusStarted).Scan(&id, &msg); err != nil {
+		tx.Rollback()
+		if err == sql.ErrNoRows {
+			return msg, NoJobToProcess
+		}
+		return msg, err
+	}
+
+	result, err := tx.ExecContext(ctx, `UPDATE jobs SET status = ? WHERE id = ?;`, tasqueue.StatusProcessing, id)
+	if err != nil {
+		tx.Rollback()
+		return msg, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		tx.Rollback()
+		return msg, err
+	}
+	if affected == 0 {
+		tx.Rollback()
+		return msg, NoJobToProcess
+	}
+
+	if err = tx.Commit(); err != nil {
+		return msg, err
+	}
+
+	return msg, nil
 }
 
 func (broker *Broker) GetPending(ctx context.Context, queue string) ([]string, error) {
-	return nil, fmt.Errorf("GetPending: not implemeted")
+	messages := make([]string, 0)
+	rows, err := broker.db.QueryContext(ctx, `SELECT msg FROM jobs WHERE queue = ? AND status = ?`, queue, tasqueue.StatusStarted)
+	if err != nil {
+		return messages, err
+	}
+	for rows.Next() {
+		var msg string
+		if err = rows.Scan(&msg); err != nil {
+			return messages, err
+		}
+		messages = append(messages, msg)
+	}
+	return messages, nil
+}
+
+func (broker *Broker) EnqueueScheduled(ctx context.Context, msg []byte, queue string, ts time.Time) error {
+	return fmt.Errorf("EnqueueScheduled: not implemeted")
 }
