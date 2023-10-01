@@ -49,7 +49,7 @@ func main() {
 
 	go srv.Start(ctx)
 
-	b, _ := json.Marshal(tasks.SumPayload{Arg1: 5, Arg2: 4})
+	b, _ := json.Marshal(tasks.SumPayload{Arg1: 40, Arg2: 40})
 	task, err := tasqueue.NewJob("add", b, tasqueue.JobOpts{})
 	if err != nil {
 		log.Fatal(err)
@@ -59,7 +59,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	b, _ = json.Marshal(tasks.SumPayload{Arg1: 5, Arg2: 4})
+	b, _ = json.Marshal(tasks.SumPayload{Arg1: 2, Arg2: 2})
 	task, err = tasqueue.NewJob("add", b, tasqueue.JobOpts{})
 	if err != nil {
 		log.Fatal(err)
