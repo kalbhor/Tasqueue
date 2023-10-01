@@ -18,7 +18,9 @@ import (
 
 func main() {
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
-	lo := slog.Default()
+	lo := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
 	broker, err := sqb.New(sqb.Options{
 		DataSource: "jobs.db",
 	}, lo)
