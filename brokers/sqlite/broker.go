@@ -99,14 +99,15 @@ func (broker *Broker) Consume(ctx context.Context, work chan []byte, queue strin
 			broker.log.Debug("shutting down the consumer")
 			return
 		default:
+			broker.log.Debug("receiving from consumer..")
 			msg, err := broker.popJob(ctx, queue)
 			if err == nil {
 				work <- []byte(msg)
 			} else {
 				if err == NoJobToProcess {
-					broker.log.Debug("no jobs to process")
+					broker.log.Error("error consuming from sqlite queue", "error", err)
 				} else {
-					broker.log.Debug("failed to pop job", msg, err)
+					broker.log.Error("error parsing response from sqlite", "error", err)
 					return
 				}
 			}
