@@ -71,7 +71,7 @@ func (broker *Broker) Enqueue(ctx context.Context, msg []byte, queue string) err
 	result, err := tx.Exec(`REPLACE INTO jobs(id,queue,msg,status) VALUES(?,?,?,?);`, job_msg.ID, queue, msg, job_msg.Status)
 	if err != nil {
 		tx.Rollback()
-		broker.log.Debug("failed to replace in jobs", err)
+		broker.log.Debug("failed to begin ..", "error", err)
 		return err
 	}
 	affected, err := result.RowsAffected()
@@ -96,7 +96,7 @@ func (broker *Broker) Consume(ctx context.Context, work chan []byte, queue strin
 	for {
 		select {
 		case <-ctx.Done():
-			broker.log.Debug("stopping the consumer")
+			broker.log.Debug("shutting down the consumer")
 			return
 		default:
 			msg, err := broker.popJob(ctx, queue)
