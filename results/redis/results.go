@@ -72,11 +72,11 @@ func New(o Options, lo *slog.Logger) *Results {
 
 func (r *Results) DeleteJob(ctx context.Context, id string) error {
 	r.lo.Debug("deleting job")
-	if err := r.conn.LRem(ctx, resultPrefix+success, 1, id).Err(); err != nil {
+	if err := r.conn.ZRem(ctx, resultPrefix+success, 1, id).Err(); err != nil {
 		return err
 	}
 
-	if err := r.conn.LRem(ctx, resultPrefix+failed, 1, id).Err(); err != nil {
+	if err := r.conn.ZRem(ctx, resultPrefix+failed, 1, id).Err(); err != nil {
 		return err
 	}
 
