@@ -72,15 +72,21 @@ func New(o Options, lo *slog.Logger) *Results {
 
 func (r *Results) DeleteJob(ctx context.Context, id string) error {
 	r.lo.Debug("deleting job")
-	if err := r.conn.ZRem(ctx, resultPrefix+success, 1, id).Err(); err != nil {
+
+	pipe := r.conn.Pipeline()
+	if err := pipe.ZRem(ctx, resultPrefix+success, 1, id).Err(); err != nil {
 		return err
 	}
 
-	if err := r.conn.ZRem(ctx, resultPrefix+failed, 1, id).Err(); err != nil {
+	if err := pipe.ZRem(ctx, resultPrefix+failed, 1, id).Err(); err != nil {
 		return err
 	}
 
-	if err := r.conn.Del(ctx, resultPrefix+id).Err(); err != nil {
+	if err := pipe.Del(ctx, resultPrefix+id).Err(); err != nil {
+		return err
+	}
+
+	if _, err := pipe.Exec(ctx); err != nil {
 		return err
 	}
 
