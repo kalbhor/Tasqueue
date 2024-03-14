@@ -46,9 +46,7 @@ func (r *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
 			r.pending[queue] = r.pending[queue][1:]
 			r.pmu.Unlock()
 
-			r.mu.RLock()
 			work <- d
-			r.mu.RUnlock()
 		}
 	}
 }
