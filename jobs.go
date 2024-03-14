@@ -21,9 +21,12 @@ const (
 // It is the responsibility of the task handler to unmarshal (if required) the payload and process it in any manner.
 type Job struct {
 	// If task is successful, the OnSuccess jobs are enqueued.
-	OnSuccess *Job
+	OnSuccess []*Job
 	Task      string
 	Payload   []byte
+
+	// If task fails, the OnError jobs are enqueued.
+	OnError []*Job
 
 	Opts JobOpts
 }
@@ -42,15 +45,15 @@ type JobOpts struct {
 
 // Meta contains fields related to a job. These are updated when a task is consumed.
 type Meta struct {
-	ID          string
-	OnSuccessID string
-	Status      string
-	Queue       string
-	Schedule    string
-	MaxRetry    uint32
-	Retried     uint32
-	PrevErr     string
-	ProcessedAt time.Time
+	ID           string
+	OnSuccessIDs []string
+	Status       string
+	Queue        string
+	Schedule     string
+	MaxRetry     uint32
+	Retried      uint32
+	PrevErr      string
+	ProcessedAt  time.Time
 
 	// PrevJobResults contains any job result set by the previous job in a chain.
 	// This will be nil if the previous job doesn't set the results on JobCtx.
@@ -151,7 +154,7 @@ func (s *Server) enqueueWithMeta(ctx context.Context, t Job, meta Meta) (string,
 		}
 
 		// Set current jobs OnSuccess as next job
-		t.OnSuccess = &j
+		t.OnSuccess = append(t.OnSuccess, &j)
 		// Set the next job's eta according to schedule
 		j.Opts.ETA = sch.Next(t.Opts.ETA)
 	}

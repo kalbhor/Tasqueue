@@ -27,13 +27,11 @@ func (r *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
 	ch, ok := r.queues[queue]
 	r.mu.RUnlock()
 
-	// If the queue isn't found, make a queue.
 	if !ok {
 		ch = make(chan []byte, 100)
 		r.mu.Lock()
 		r.queues[queue] = ch
 		r.mu.Unlock()
-
 	}
 
 	for {

@@ -233,6 +233,44 @@ func TestDeleteJob(t *testing.T) {
 
 }
 
+func TestJobsOnError(t *testing.T) {
+	var (
+		srv = newServer(t, taskName, MockHandler)
+	)
+
+	hasErrored := make(chan bool, 1)
+
+	if err := srv.RegisterTask("error", func(b []byte, jc JobCtx) error {
+		t.Log("error task called")
+		hasErrored <- true
+		return nil
+	}, TaskOpts{
+		Queue:       "error_task",
+		Concurrency: 1,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	j := makeJob(t, taskName, true)
+
+	errJob, _ := NewJob("error", []byte{}, JobOpts{
+		Queue: "error_task",
+	})
+
+	j.OnError = append(j.OnError, &errJob)
+
+	if _, err := srv.Enqueue(context.Background(), j); err != nil {
+		t.Fatalf("error enqueuing job: %v", err)
+	}
+
+	go srv.Start(context.Background())
+
+	b := <-hasErrored
+	if !b {
+		t.Fatalf("error job didn't enqueue")
+	}
+}
+
 func makeJob(t *testing.T, taskName string, doErr bool) Job {
 	j, err := json.Marshal(MockPayload{ShouldErr: doErr})
 	if err != nil {
