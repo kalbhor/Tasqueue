@@ -12,11 +12,18 @@ import (
 )
 
 const (
-	DefaultPollPeriod = time.Second
-	sortedSetKey      = "tasqueue:ss:%s"
+	DefaultPipePeriod = 200 * time.Millisecond
 )
 
-type Options struct {
+type PipeBroker struct {
+	log  *slog.Logger
+	opts PipedOptions
+
+	conn redis.UniversalClient
+	pipe redis.Pipeliner
+}
+
+type PipedOptions struct {
 	Addrs        []string
 	Password     string
 	DB           int
@@ -25,37 +32,61 @@ type Options struct {
 	WriteTimeout time.Duration
 	IdleTimeout  time.Duration
 	MinIdleConns int
-	PollPeriod   time.Duration
+
+	PollPeriod time.Duration
+	PipePeriod time.Duration
 }
 
-type Broker struct {
-	log  *slog.Logger
-	opts Options
-
-	conn redis.UniversalClient
-}
-
-func New(o Options, lo *slog.Logger) *Broker {
+func NewPiped(o PipedOptions, lo *slog.Logger) *PipeBroker {
 	if o.PollPeriod == 0 {
 		o.PollPeriod = DefaultPollPeriod
 	}
-	return &Broker{
-		opts: o,
+	if o.PipePeriod == 0 {
+		o.PipePeriod = DefaultPipePeriod
+	}
+
+	conn := redis.NewUniversalClient(&redis.UniversalOptions{
+		Addrs:        o.Addrs,
+		DB:           o.DB,
+		Password:     o.Password,
+		DialTimeout:  o.DialTimeout,
+		ReadTimeout:  o.ReadTimeout,
+		WriteTimeout: o.WriteTimeout,
+		MinIdleConns: o.MinIdleConns,
+		IdleTimeout:  o.IdleTimeout,
+	})
+
+	p := &PipeBroker{
 		log:  lo,
-		conn: redis.NewUniversalClient(&redis.UniversalOptions{
-			Addrs:        o.Addrs,
-			DB:           o.DB,
-			Password:     o.Password,
-			DialTimeout:  o.DialTimeout,
-			ReadTimeout:  o.ReadTimeout,
-			WriteTimeout: o.WriteTimeout,
-			MinIdleConns: o.MinIdleConns,
-			IdleTimeout:  o.IdleTimeout,
-		}),
+		conn: conn,
+		pipe: conn.Pipeline(),
+		opts: o,
+	}
+
+	go p.pushPipe(context.TODO())
+
+	return p
+}
+
+func (r *PipeBroker) pushPipe(ctx context.Context) {
+	tk := time.NewTicker(r.opts.PipePeriod)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tk.C:
+			r.log.Debug("submitting redis pipe")
+			if r.pipe.Len() == 0 {
+				continue
+			}
+			if _, err := r.pipe.Exec(ctx); err != nil {
+				r.log.Error("error executing redis pipe: %v", err)
+			}
+		}
 	}
 }
 
-func (r *Broker) GetPending(ctx context.Context, queue string) ([]string, error) {
+func (r *PipeBroker) GetPending(ctx context.Context, queue string) ([]string, error) {
 	rs, err := r.conn.LRange(ctx, queue, 0, -1).Result()
 	if err == redis.Nil {
 		return []string{}, nil
@@ -66,18 +97,18 @@ func (r *Broker) GetPending(ctx context.Context, queue string) ([]string, error)
 	return rs, nil
 }
 
-func (b *Broker) Enqueue(ctx context.Context, msg []byte, queue string) error {
-	return b.conn.LPush(ctx, queue, msg).Err()
+func (b *PipeBroker) Enqueue(ctx context.Context, msg []byte, queue string) error {
+	return b.pipe.LPush(ctx, queue, msg).Err()
 }
 
-func (b *Broker) EnqueueScheduled(ctx context.Context, msg []byte, queue string, ts time.Time) error {
-	return b.conn.ZAdd(ctx, fmt.Sprintf(sortedSetKey, queue), &redis.Z{
+func (b *PipeBroker) EnqueueScheduled(ctx context.Context, msg []byte, queue string, ts time.Time) error {
+	return b.pipe.ZAdd(ctx, fmt.Sprintf(sortedSetKey, queue), &redis.Z{
 		Score:  float64(ts.UnixNano()),
 		Member: msg,
 	}).Err()
 }
 
-func (b *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
+func (b *PipeBroker) Consume(ctx context.Context, work chan []byte, queue string) {
 	go b.consumeScheduled(ctx, queue)
 
 	for {
@@ -104,7 +135,7 @@ func (b *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
 	}
 }
 
-func (b *Broker) consumeScheduled(ctx context.Context, queue string) {
+func (b *PipeBroker) consumeScheduled(ctx context.Context, queue string) {
 	poll := time.NewTicker(b.opts.PollPeriod)
 
 	for {
@@ -142,12 +173,4 @@ func (b *Broker) consumeScheduled(ctx context.Context, queue string) {
 		}
 
 	}
-}
-
-func blpopResult(rs []string) (string, error) {
-	if len(rs) != 2 {
-		return "", fmt.Errorf("BLPop result should have exactly 2 strings. Got : %v", rs)
-	}
-
-	return rs[1], nil
 }
