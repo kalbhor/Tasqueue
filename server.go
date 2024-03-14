@@ -278,6 +278,7 @@ func (s *Server) process(ctx context.Context, w chan []byte) {
 				s.log.Error("error unmarshalling task", "error", err)
 				break
 			}
+
 			// Fetch the registered task handler.
 			task, err := s.getHandler(msg.Job.Task)
 			if err != nil {
@@ -365,6 +366,20 @@ func (s *Server) execJob(ctx context.Context, msg JobMessage, task Task) error {
 			if task.opts.FailedCB != nil {
 				task.opts.FailedCB(taskCtx, err)
 			}
+
+			// If there are jobs to enqueued after failure, enqueue them.
+			if msg.Job.OnError != nil {
+				// Extract OnErrorJob into a variable to get opts.
+				for _, j := range msg.Job.OnError {
+					nj := *j
+					meta := DefaultMeta(nj.Opts)
+
+					if _, err = s.enqueueWithMeta(ctx, nj, meta); err != nil {
+						return fmt.Errorf("error enqueuing jobs after failure: %w", err)
+					}
+				}
+			}
+
 			// If we hit max retries, set the task status as failed.
 			return s.statusFailed(ctx, msg)
 		}
@@ -376,19 +391,22 @@ func (s *Server) execJob(ctx context.Context, msg JobMessage, task Task) error {
 
 	// If the task contains OnSuccess task (part of a chain), enqueue them.
 	if msg.Job.OnSuccess != nil {
-		// Extract OnSuccessJob into a variable to get opts.
-		j := msg.Job.OnSuccess
-		nj := *j
-		meta := DefaultMeta(nj.Opts)
-		meta.PrevJobResult, err = s.GetResult(ctx, msg.ID)
-		if err != nil {
-			return fmt.Errorf("could not get result for id (%s) : %w", msg.ID, err)
-		}
+		for _, j := range msg.Job.OnSuccess {
+			// Extract OnSuccessJob into a variable to get opts.
+			nj := *j
+			meta := DefaultMeta(nj.Opts)
+			meta.PrevJobResult, err = s.GetResult(ctx, msg.ID)
+			if err != nil {
+				return err
+			}
 
-		// Set the ID of the next job in the chain
-		msg.OnSuccessID, err = s.enqueueWithMeta(ctx, nj, meta)
-		if err != nil {
-			return fmt.Errorf("could not enqueue job id (%s) : %w", msg.ID, err)
+			// Set the ID of the next job in the chain
+			onSuccessID, err := s.enqueueWithMeta(ctx, nj, meta)
+			if err != nil {
+				return err
+			}
+
+			msg.OnSuccessIDs = append(msg.OnSuccessIDs, onSuccessID)
 		}
 	}
 

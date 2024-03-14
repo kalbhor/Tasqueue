@@ -46,7 +46,7 @@ func NewChain(j []Job, opts ChainOpts) (Chain, error) {
 	// Set the on success tasks as the i+1 task,
 	// hence forming a "chain" of tasks.
 	for i := 0; i < len(j)-1; i++ {
-		j[i].OnSuccess = &j[i+1]
+		j[i].OnSuccess = append(j[i].OnSuccess, &j[i+1])
 	}
 
 	return Chain{Jobs: j, Opts: opts}, nil
@@ -114,10 +114,10 @@ checkJobs:
 	// to success. Otherwise update the current job and perform all the above checks.
 	case StatusDone:
 		c.PrevJobs = append(c.PrevJobs, currJob.ID)
-		if currJob.OnSuccessID == "" {
+		if len(currJob.OnSuccessIDs) == 0 {
 			c.Status = StatusDone
 		} else {
-			currJob, err = s.GetJob(ctx, currJob.OnSuccessID)
+			currJob, err = s.GetJob(ctx, currJob.OnSuccessIDs[0])
 			if err != nil {
 				return ChainMessage{}, nil
 			}

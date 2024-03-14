@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
 	"testing"
 	"time"
 
@@ -16,11 +17,13 @@ const (
 )
 
 func newServer(t *testing.T, taskName string, handler func([]byte, JobCtx) error) *Server {
-	lo := slog.Default().Handler()
+	lo := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelError,
+	}))
 	srv, err := NewServer(ServerOpts{
 		Broker:  rb.New(),
 		Results: rr.New(),
-		Logger:  lo,
+		Logger:  lo.Handler(),
 	})
 	if err != nil {
 		t.Fatal(err)
