@@ -221,6 +221,7 @@ func (s *Server) Start(ctx context.Context) {
 
 	var wg sync.WaitGroup
 	for q, conc := range queues {
+		q := q // Hack to fix the loop variable capture issue.
 		if s.traceProv != nil {
 			var span spans.Span
 			ctx, span = otel.Tracer(tracer).Start(ctx, "start")
