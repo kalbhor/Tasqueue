@@ -26,21 +26,28 @@ type Options struct {
 	IdleTimeout  time.Duration
 	MinIdleConns int
 	PollPeriod   time.Duration
+
+	// OPTIONAL
+	// If non-zero, enqueue redis commands will be piped instead of being directly sent each time.
+	// The pipe will be executed every `PipePeriod` duration.
+	PipePeriod time.Duration
 }
 
 type Broker struct {
-	log        *slog.Logger
-	conn       redis.UniversalClient
-	pollPeriod time.Duration
+	lo   *slog.Logger
+	opts Options
+
+	conn redis.UniversalClient
+	pipe redis.Pipeliner
 }
 
 func New(o Options, lo *slog.Logger) *Broker {
-	pollPeriod := o.PollPeriod
 	if o.PollPeriod == 0 {
-		pollPeriod = DefaultPollPeriod
+		o.PollPeriod = DefaultPollPeriod
 	}
-	return &Broker{
-		log: lo,
+	b := &Broker{
+		opts: o,
+		lo:   lo,
 		conn: redis.NewUniversalClient(&redis.UniversalOptions{
 			Addrs:        o.Addrs,
 			DB:           o.DB,
@@ -51,7 +58,36 @@ func New(o Options, lo *slog.Logger) *Broker {
 			MinIdleConns: o.MinIdleConns,
 			IdleTimeout:  o.IdleTimeout,
 		}),
-		pollPeriod: pollPeriod,
+	}
+
+	if o.PipePeriod != 0 {
+		b.pipe = b.conn.Pipeline()
+		go b.execPipe(context.TODO())
+	}
+
+	return b
+}
+
+func (r *Broker) execPipe(ctx context.Context) {
+	tk := time.NewTicker(r.opts.PipePeriod)
+	for {
+		select {
+		case <-ctx.Done():
+			r.lo.Debug("context closed, draining redis pipe", "length", r.pipe.Len())
+			if _, err := r.pipe.Exec(ctx); err != nil {
+				r.lo.Error("could not execute redis pipe", "error", err)
+			}
+			return
+		case <-tk.C:
+			plen := r.pipe.Len()
+			if plen == 0 {
+				continue
+			}
+			r.lo.Debug("submitting redis pipe", "length", plen)
+			if _, err := r.pipe.Exec(ctx); err != nil {
+				r.lo.Error("could not execute redis pipe", "error", err)
+			}
+		}
 	}
 }
 
@@ -67,10 +103,19 @@ func (r *Broker) GetPending(ctx context.Context, queue string) ([]string, error)
 }
 
 func (b *Broker) Enqueue(ctx context.Context, msg []byte, queue string) error {
+	if b.opts.PipePeriod != 0 {
+		return b.pipe.LPush(ctx, queue, msg).Err()
+	}
 	return b.conn.LPush(ctx, queue, msg).Err()
 }
 
 func (b *Broker) EnqueueScheduled(ctx context.Context, msg []byte, queue string, ts time.Time) error {
+	if b.opts.PipePeriod != 0 {
+		return b.pipe.ZAdd(ctx, fmt.Sprintf(sortedSetKey, queue), &redis.Z{
+			Score:  float64(ts.UnixNano()),
+			Member: msg,
+		}).Err()
+	}
 	return b.conn.ZAdd(ctx, fmt.Sprintf(sortedSetKey, queue), &redis.Z{
 		Score:  float64(ts.UnixNano()),
 		Member: msg,
@@ -83,19 +128,19 @@ func (b *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
 	for {
 		select {
 		case <-ctx.Done():
-			b.log.Debug("shutting down consumer..")
+			b.lo.Debug("shutting down consumer..")
 			return
 		default:
-			b.log.Debug("receiving from consumer..")
-			res, err := b.conn.BLPop(ctx, b.pollPeriod, queue).Result()
+			b.lo.Debug("receiving from consumer..")
+			res, err := b.conn.BLPop(ctx, b.opts.PollPeriod, queue).Result()
 			if err != nil && err.Error() != "redis: nil" {
-				b.log.Error("error consuming from redis queue", "error", err)
+				b.lo.Error("error consuming from redis queue", "error", err)
 			} else if errors.Is(err, redis.Nil) {
-				b.log.Debug("no tasks to consume..", "queue", queue)
+				b.lo.Debug("no tasks to consume..", "queue", queue)
 			} else {
 				msg, err := blpopResult(res)
 				if err != nil {
-					b.log.Error("error parsing response from redis", "error", err)
+					b.lo.Error("error parsing response from redis", "error", err)
 					return
 				}
 				work <- []byte(msg)
@@ -105,12 +150,12 @@ func (b *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
 }
 
 func (b *Broker) consumeScheduled(ctx context.Context, queue string) {
-	poll := time.NewTicker(b.pollPeriod)
+	poll := time.NewTicker(b.opts.PollPeriod)
 
 	for {
 		select {
 		case <-ctx.Done():
-			b.log.Debug("shutting down scheduled consumer..")
+			b.lo.Debug("shutting down scheduled consumer..")
 			return
 		case <-poll.C:
 			b.conn.Watch(ctx, func(tx *redis.Tx) error {
