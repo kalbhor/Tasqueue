@@ -1,0 +1,11 @@
+go 1.21
+
+use (
+	.
+	./brokers/in-memory
+	./brokers/nats-js
+	./brokers/redis
+	./results/in-memory
+	./results/nats-js
+	./results/redis
+)

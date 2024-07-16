@@ -20,3 +20,6 @@ CLAUDE.md
 # Development artifacts
 TODO.md
 *.rdb
+
+# Go workspace sum file (checksums vary by environment)
+go.work.sum
