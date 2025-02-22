@@ -146,16 +146,11 @@ func NewServer(o ServerOpts) (*Server, error) {
 // GetTasks() returns a list of all tasks registered with the server.
 func (s *Server) GetTasks() []string {
 	s.p.RLock()
-	tasks := s.tasks
-	s.p.RUnlock()
+	defer s.p.RUnlock()
 
-	var (
-		t = make([]string, len(tasks))
-		i = 0
-	)
-	for k := range tasks {
-		t[i] = k
-		i++
+	t := make([]string, 0, len(s.tasks))
+	for name := range s.tasks {
+		t = append(t, name)
 	}
 
 	return t
