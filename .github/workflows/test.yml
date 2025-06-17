@@ -7,19 +7,19 @@ jobs:
   test:
     strategy:
       matrix:
-        go: ["1.21"]
+        go: ["1.24.4"]
 
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
 
     name: Go ${{ matrix.go }} Tests
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           persist-credentials: false # otherwise, the token used is the GITHUB_TOKEN, instead of your personal access token
 
       - name: Setup Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go }}
 
@@ -27,11 +27,12 @@ jobs:
         run: go mod verify
 
       - name: Run Test
-        run: go test -v ./... -covermode=count -coverprofile=coverage.out
+        run: |
+          go test -v ./... -covermode=count -coverprofile=coverage.out
           go tool cover -func=coverage.out -o=coverage.out
 
       - name: Verify Changed files
-        uses: tj-actions/verify-changed-files@v8.1
+        uses: tj-actions/verify-changed-files@v17
         id: verify-changed-files
         with:
           files: README.md

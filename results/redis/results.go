@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -55,14 +55,14 @@ func New(o Options, lo *slog.Logger) *Results {
 		opts: o,
 		conn: redis.NewUniversalClient(
 			&redis.UniversalOptions{
-				Addrs:        o.Addrs,
-				Password:     o.Password,
-				DB:           o.DB,
-				DialTimeout:  o.DialTimeout,
-				ReadTimeout:  o.ReadTimeout,
-				WriteTimeout: o.WriteTimeout,
-				IdleTimeout:  o.IdleTimeout,
-				MinIdleConns: o.MinIdleConns,
+				Addrs:           o.Addrs,
+				Password:        o.Password,
+				DB:              o.DB,
+				DialTimeout:     o.DialTimeout,
+				ReadTimeout:     o.ReadTimeout,
+				WriteTimeout:    o.WriteTimeout,
+				ConnMaxIdleTime: o.IdleTimeout,
+				MinIdleConns:    o.MinIdleConns,
 			},
 		),
 		lo: lo,
@@ -154,12 +154,12 @@ func (r *Results) GetFailed(ctx context.Context) ([]string, error) {
 func (r *Results) SetSuccess(ctx context.Context, id string) error {
 	r.lo.Debug("setting job as successful", "id", id)
 	if r.opts.PipePeriod != 0 {
-		return r.pipe.ZAdd(ctx, resultPrefix+success, &redis.Z{
+		return r.pipe.ZAdd(ctx, resultPrefix+success, redis.Z{
 			Score:  float64(time.Now().UnixNano()),
 			Member: id,
 		}).Err()
 	}
-	return r.conn.ZAdd(ctx, resultPrefix+success, &redis.Z{
+	return r.conn.ZAdd(ctx, resultPrefix+success, redis.Z{
 		Score:  float64(time.Now().UnixNano()),
 		Member: id,
 	}).Err()
@@ -168,12 +168,12 @@ func (r *Results) SetSuccess(ctx context.Context, id string) error {
 func (r *Results) SetFailed(ctx context.Context, id string) error {
 	r.lo.Debug("setting job as failed", "id", id)
 	if r.opts.PipePeriod != 0 {
-		return r.pipe.ZAdd(ctx, resultPrefix+failed, &redis.Z{
+		return r.pipe.ZAdd(ctx, resultPrefix+failed, redis.Z{
 			Score:  float64(time.Now().UnixNano()),
 			Member: id,
 		}).Err()
 	}
-	return r.conn.ZAdd(ctx, resultPrefix+failed, &redis.Z{
+	return r.conn.ZAdd(ctx, resultPrefix+failed, redis.Z{
 		Score:  float64(time.Now().UnixNano()),
 		Member: id,
 	}).Err()
