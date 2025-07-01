@@ -221,7 +221,7 @@ func BenchmarkGroup(b *testing.B) {
 
 			group, err := NewGroup(jobs, GroupOpts{})
 			if err != nil {
-				b.Fatalf(err.Error())
+				b.Fatal(err.Error())
 			}
 
 			if _, err := srv.EnqueueGroup(ctx, group); err != nil {
