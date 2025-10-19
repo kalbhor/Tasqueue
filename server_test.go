@@ -69,7 +69,7 @@ func TestCronLifecycleManagement(t *testing.T) {
 
 	// Create a context that we can cancel
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	// Start server in a goroutine
 	done := make(chan bool)
 	go func() {

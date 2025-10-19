@@ -259,41 +259,43 @@ func (s *Server) process(ctx context.Context, w chan []byte) {
 			defer span.End()
 		}
 
-		select {
-		case <-ctx.Done():
-			s.log.Info("shutting down processor..")
+		// Channel-only shutdown: wait for work or channel closure
+		work, ok := <-w
+		if !ok {
+			// Channel closed by broker - clean shutdown
+			s.log.Info("work channel closed, shutting down processor..")
 			return
-		case work := <-w:
-			var (
-				msg JobMessage
-				err error
-			)
-			// Decode the bytes into a job message
-			if err = msgpack.Unmarshal(work, &msg); err != nil {
-				s.spanError(span, err)
-				s.log.Error("error unmarshalling task", "error", err)
-				break
-			}
+		}
 
-			// Fetch the registered task handler.
-			task, err := s.getHandler(msg.Job.Task)
-			if err != nil {
-				s.spanError(span, err)
-				s.log.Error("handler not found", "error", err)
-				break
-			}
+		var (
+			msg JobMessage
+			err error
+		)
+		// Decode the bytes into a job message
+		if err = msgpack.Unmarshal(work, &msg); err != nil {
+			s.spanError(span, err)
+			s.log.Error("error unmarshalling task", "error", err)
+			continue
+		}
 
-			// Set the job status as being "processed"
-			if err := s.statusProcessing(ctx, msg); err != nil {
-				s.spanError(span, err)
-				s.log.Error("error setting the status to processing", "error", err)
-				break
-			}
+		// Fetch the registered task handler.
+		task, err := s.getHandler(msg.Job.Task)
+		if err != nil {
+			s.spanError(span, err)
+			s.log.Error("handler not found", "error", err)
+			continue
+		}
 
-			if err := s.execJob(ctx, msg, task); err != nil {
-				s.spanError(span, err)
-				s.log.Error("could not execute job", "error", err)
-			}
+		// Set the job status as being "processed"
+		if err := s.statusProcessing(ctx, msg); err != nil {
+			s.spanError(span, err)
+			s.log.Error("error setting the status to processing", "error", err)
+			continue
+		}
+
+		if err := s.execJob(ctx, msg, task); err != nil {
+			s.spanError(span, err)
+			s.log.Error("could not execute job", "error", err)
 		}
 	}
 }
