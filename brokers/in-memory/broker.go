@@ -23,6 +23,9 @@ func New() *Broker {
 }
 
 func (r *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
+	// Ensure work channel is closed when producer (broker) is done
+	defer close(work)
+	
 	r.mu.RLock()
 	ch, ok := r.queues[queue]
 	r.mu.RUnlock()

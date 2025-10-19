@@ -123,6 +123,8 @@ func (b *Broker) EnqueueScheduled(ctx context.Context, msg []byte, queue string,
 }
 
 func (b *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
+	// Ensure work channel is closed when producer (broker) is done
+	defer close(work)
 	go b.consumeScheduled(ctx, queue)
 
 	for {

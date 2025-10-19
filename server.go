@@ -208,13 +208,14 @@ func (s *Server) GetSuccess(ctx context.Context) ([]string, error) {
 
 // Start() starts the job consumer and processor. It is a blocking function.
 func (s *Server) Start(ctx context.Context) {
-	go s.cron.Start()
 	// Loop over each registered queue.
 	s.q.RLock()
 	queues := s.queues
 	s.q.RUnlock()
 
 	var wg sync.WaitGroup
+
+	s.startCronScheduler(ctx, &wg)
 	for q, conc := range queues {
 		q := q // Hack to fix the loop variable capture issue.
 		if s.traceProv != nil {
@@ -258,41 +259,43 @@ func (s *Server) process(ctx context.Context, w chan []byte) {
 			defer span.End()
 		}
 
-		select {
-		case <-ctx.Done():
-			s.log.Info("shutting down processor..")
+		// Channel-only shutdown: wait for work or channel closure
+		work, ok := <-w
+		if !ok {
+			// Channel closed by broker - clean shutdown
+			s.log.Info("work channel closed, shutting down processor..")
 			return
-		case work := <-w:
-			var (
-				msg JobMessage
-				err error
-			)
-			// Decode the bytes into a job message
-			if err = msgpack.Unmarshal(work, &msg); err != nil {
-				s.spanError(span, err)
-				s.log.Error("error unmarshalling task", "error", err)
-				break
-			}
+		}
 
-			// Fetch the registered task handler.
-			task, err := s.getHandler(msg.Job.Task)
-			if err != nil {
-				s.spanError(span, err)
-				s.log.Error("handler not found", "error", err)
-				break
-			}
+		var (
+			msg JobMessage
+			err error
+		)
+		// Decode the bytes into a job message
+		if err = msgpack.Unmarshal(work, &msg); err != nil {
+			s.spanError(span, err)
+			s.log.Error("error unmarshalling task", "error", err)
+			continue
+		}
 
-			// Set the job status as being "processed"
-			if err := s.statusProcessing(ctx, msg); err != nil {
-				s.spanError(span, err)
-				s.log.Error("error setting the status to processing", "error", err)
-				break
-			}
+		// Fetch the registered task handler.
+		task, err := s.getHandler(msg.Job.Task)
+		if err != nil {
+			s.spanError(span, err)
+			s.log.Error("handler not found", "error", err)
+			continue
+		}
 
-			if err := s.execJob(ctx, msg, task); err != nil {
-				s.spanError(span, err)
-				s.log.Error("could not execute job", "error", err)
-			}
+		// Set the job status as being "processed"
+		if err := s.statusProcessing(ctx, msg); err != nil {
+			s.spanError(span, err)
+			s.log.Error("error setting the status to processing", "error", err)
+			continue
+		}
+
+		if err := s.execJob(ctx, msg, task); err != nil {
+			s.spanError(span, err)
+			s.log.Error("could not execute job", "error", err)
 		}
 	}
 }
@@ -569,4 +572,39 @@ func (s *Server) spanError(sp spans.Span, err error) {
 		sp.RecordError(err)
 		sp.SetStatus(codes.Error, err.Error())
 	}
+}
+
+// startCronScheduler starts the cron scheduler and manages its lifecycle.
+// It handles graceful shutdown when the context is cancelled.
+func (s *Server) startCronScheduler(ctx context.Context, wg *sync.WaitGroup) {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		// Check if context is already cancelled before starting cron
+		select {
+		case <-ctx.Done():
+			s.log.Debug("context cancelled before cron start")
+			return
+		default:
+		}
+
+		s.cron.Start()
+		s.log.Debug("cron scheduler started")
+
+		// Wait for shutdown signal
+		<-ctx.Done()
+		s.log.Info("shutting down cron scheduler...")
+
+		// Stop cron with timeout protection
+		cronCtx := s.cron.Stop()
+		shutdownTimeout := 5 * time.Second
+
+		select {
+		case <-cronCtx.Done():
+			s.log.Debug("cron scheduler stopped gracefully")
+		case <-time.After(shutdownTimeout):
+			s.log.Warn("cron scheduler stop timeout - forcing exit")
+		}
+	}()
 }

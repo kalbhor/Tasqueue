@@ -95,7 +95,7 @@ func (s *Server) GetChain(ctx context.Context, id string) (ChainMessage, error) 
 	// Fetch the current job, to check its status
 	currJob, err := s.GetJob(ctx, c.JobID)
 	if err != nil {
-		return ChainMessage{}, nil
+		return ChainMessage{}, fmt.Errorf("failed to get current job %s in chain %s: %w", c.JobID, id, err)
 	}
 
 checkJobs:
@@ -117,16 +117,17 @@ checkJobs:
 		if len(currJob.OnSuccessIDs) == 0 {
 			c.Status = StatusDone
 		} else {
-			currJob, err = s.GetJob(ctx, currJob.OnSuccessIDs[0])
+			nextJobID := currJob.OnSuccessIDs[0]
+			currJob, err = s.GetJob(ctx, nextJobID)
 			if err != nil {
-				return ChainMessage{}, nil
+				return ChainMessage{}, fmt.Errorf("failed to get next job %s in chain %s: %w", nextJobID, id, err)
 			}
 			goto checkJobs
 		}
 	}
 
 	if err = s.setChainMessage(ctx, c); err != nil {
-		return ChainMessage{}, nil
+		return ChainMessage{}, fmt.Errorf("failed to save chain message for chain %s: %w", id, err)
 	}
 
 	return c, nil

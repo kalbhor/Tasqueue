@@ -96,6 +96,23 @@ func (b *Broker) Enqueue(_ context.Context, msg []byte, queue string) error {
 	return nil
 }
 
+// TODO: CRITICAL - This implementation has goroutine leak issues that prevent graceful shutdown:
+//
+//  1. SUBSCRIPTION NOT CLEANED UP: The NATS subscription is never unsubscribed when context
+//     is cancelled, meaning the subscription callback continues running indefinitely.
+//
+//  2. CALLBACK GOROUTINE HANGS: The callback function may block forever on "work <- msg.Data"
+//     if the work channel is full or no longer being read, preventing graceful shutdown.
+//
+//  3. NO DRAIN/UNSUBSCRIBE: Should call subscription.Drain() or subscription.Unsubscribe()
+//     when context is cancelled to properly clean up NATS resources.
+//
+// This causes Server.Start() WaitGroup to hang indefinitely because s.consume() never exits.
+// A proper fix would store the subscription and clean it up:
+//
+//	sub, err := b.conn.Subscribe(queue, callback, opts...)
+//	defer sub.Drain() // or sub.Unsubscribe()
+//	<-ctx.Done()
 func (b *Broker) Consume(ctx context.Context, work chan []byte, queue string) {
 	_, err := b.conn.Subscribe(queue, func(msg *nats.Msg) {
 		work <- msg.Data
