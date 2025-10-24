@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -49,14 +49,14 @@ func New(o Options, lo *slog.Logger) *Broker {
 		opts: o,
 		lo:   lo,
 		conn: redis.NewUniversalClient(&redis.UniversalOptions{
-			Addrs:        o.Addrs,
-			DB:           o.DB,
-			Password:     o.Password,
-			DialTimeout:  o.DialTimeout,
-			ReadTimeout:  o.ReadTimeout,
-			WriteTimeout: o.WriteTimeout,
-			MinIdleConns: o.MinIdleConns,
-			IdleTimeout:  o.IdleTimeout,
+			Addrs:           o.Addrs,
+			DB:              o.DB,
+			Password:        o.Password,
+			DialTimeout:     o.DialTimeout,
+			ReadTimeout:     o.ReadTimeout,
+			WriteTimeout:    o.WriteTimeout,
+			MinIdleConns:    o.MinIdleConns,
+			ConnMaxIdleTime: o.IdleTimeout,
 		}),
 	}
 
@@ -111,12 +111,12 @@ func (b *Broker) Enqueue(ctx context.Context, msg []byte, queue string) error {
 
 func (b *Broker) EnqueueScheduled(ctx context.Context, msg []byte, queue string, ts time.Time) error {
 	if b.opts.PipePeriod != 0 {
-		return b.pipe.ZAdd(ctx, fmt.Sprintf(sortedSetKey, queue), &redis.Z{
+		return b.pipe.ZAdd(ctx, fmt.Sprintf(sortedSetKey, queue), redis.Z{
 			Score:  float64(ts.UnixNano()),
 			Member: msg,
 		}).Err()
 	}
-	return b.conn.ZAdd(ctx, fmt.Sprintf(sortedSetKey, queue), &redis.Z{
+	return b.conn.ZAdd(ctx, fmt.Sprintf(sortedSetKey, queue), redis.Z{
 		Score:  float64(ts.UnixNano()),
 		Member: msg,
 	}).Err()

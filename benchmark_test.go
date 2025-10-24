@@ -7,9 +7,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/go-redis/redis"
 	rb "github.com/kalbhor/tasqueue/v2/brokers/redis"
 	rr "github.com/kalbhor/tasqueue/v2/results/redis"
+	"github.com/redis/go-redis/v9"
 )
 
 // The benchmarks use redis as results & broker.
@@ -59,7 +59,7 @@ func flushRedis() {
 		DB:       redisDB,
 		Password: redisPass,
 	})
-	conn.FlushDB()
+	conn.FlushDB(context.Background())
 	conn.Close()
 }
 
@@ -221,7 +221,7 @@ func BenchmarkGroup(b *testing.B) {
 
 			group, err := NewGroup(jobs, GroupOpts{})
 			if err != nil {
-				b.Fatalf(err.Error())
+				b.Fatal(err.Error())
 			}
 
 			if _, err := srv.EnqueueGroup(ctx, group); err != nil {
