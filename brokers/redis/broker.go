@@ -102,6 +102,63 @@ func (r *Broker) GetPending(ctx context.Context, queue string) ([]string, error)
 	return rs, nil
 }
 
+// GetPendingWithPagination returns a paginated list of pending jobs from the Redis queue
+func (r *Broker) GetPendingWithPagination(ctx context.Context, queue string, offset, limit int) ([]string, int64, error) {
+	r.lo.Debug("getting pending jobs with pagination", "queue", queue, "offset", offset, "limit", limit)
+
+	// Get total count
+	total, err := r.conn.LLen(ctx, queue).Result()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if total == 0 {
+		return []string{}, 0, nil
+	}
+
+	// Validate offset
+	if offset < 0 {
+		offset = 0
+	}
+	if int64(offset) >= total {
+		return []string{}, total, nil
+	}
+
+	// Validate limit
+	if limit <= 0 {
+		limit = 100 // Default limit
+	}
+	// Cap maximum limit to prevent abuse
+	if limit > 10000 {
+		limit = 10000
+	}
+
+	// Calculate end index for LRANGE (inclusive)
+	end := offset + limit - 1
+
+	// Get paginated results
+	rs, err := r.conn.LRange(ctx, queue, int64(offset), int64(end)).Result()
+	if err == redis.Nil {
+		return []string{}, total, nil
+	} else if err != nil {
+		return nil, 0, err
+	}
+
+	return rs, total, nil
+}
+
+// GetPendingCount returns the count of pending jobs in the Redis queue
+func (r *Broker) GetPendingCount(ctx context.Context, queue string) (int64, error) {
+	r.lo.Debug("getting pending jobs count", "queue", queue)
+
+	count, err := r.conn.LLen(ctx, queue).Result()
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
 func (b *Broker) Enqueue(ctx context.Context, msg []byte, queue string) error {
 	if b.opts.PipePeriod != 0 {
 		return b.pipe.LPush(ctx, queue, msg).Err()

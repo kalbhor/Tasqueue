@@ -16,3 +16,7 @@
 
 .CLAUDE/
 CLAUDE.md
+
+# Development artifacts
+TODO.md
+*.rdb

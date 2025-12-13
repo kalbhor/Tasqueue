@@ -26,10 +26,10 @@ func main() {
 			DB:       0,
 		}, lo),
 		Results: rr.New(rr.Options{
-			Addrs:      []string{"127.0.0.1:6379"},
-			Password:   "",
-			DB:         0,
-			MetaExpiry: time.Second * 5,
+			Addrs:    []string{"127.0.0.1:6379"},
+			Password: "",
+			DB:       0,
+			//MetaExpiry: time.Second * 5,
 		}, lo),
 		Logger: lo.Handler(),
 	})

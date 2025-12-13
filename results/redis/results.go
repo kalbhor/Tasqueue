@@ -15,6 +15,11 @@ const (
 	// Suffix for hashmaps storing success/failed job ids
 	success = "success"
 	failed  = "failed"
+
+	// Prefix for task metadata
+	taskPrefix = "tq:task:"
+	// Key for set of all task names
+	tasksSet = "tq:tasks"
 )
 
 type Results struct {
@@ -238,4 +243,95 @@ func (r *Results) expireMeta(ttl time.Duration) {
 
 func (r *Results) NilError() error {
 	return redis.Nil
+}
+
+// SetTask stores task metadata in Redis
+func (r *Results) SetTask(ctx context.Context, name string, task []byte) error {
+	r.lo.Debug("setting task metadata", "name", name)
+
+	pipe := r.conn.Pipeline()
+	// Store the task metadata
+	if err := pipe.Set(ctx, taskPrefix+name, task, 0).Err(); err != nil {
+		return err
+	}
+	// Add task name to the set of all tasks
+	if err := pipe.SAdd(ctx, tasksSet, name).Err(); err != nil {
+		return err
+	}
+	if _, err := pipe.Exec(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// GetTask retrieves task metadata from Redis
+func (r *Results) GetTask(ctx context.Context, name string) ([]byte, error) {
+	r.lo.Debug("getting task metadata", "name", name)
+	rs, err := r.conn.Get(ctx, taskPrefix+name).Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	return rs, nil
+}
+
+// GetAllTasks retrieves all task metadata from Redis
+func (r *Results) GetAllTasks(ctx context.Context) ([][]byte, error) {
+	r.lo.Debug("getting all task metadata")
+
+	// Get all task names from the set
+	taskNames, err := r.conn.SMembers(ctx, tasksSet).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(taskNames) == 0 {
+		return [][]byte{}, nil
+	}
+
+	// Build keys for all tasks
+	keys := make([]string, len(taskNames))
+	for i, name := range taskNames {
+		keys[i] = taskPrefix + name
+	}
+
+	// Fetch all task metadata in one go using MGet
+	results, err := r.conn.MGet(ctx, keys...).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert results to [][]byte
+	tasks := make([][]byte, 0, len(results))
+	for _, result := range results {
+		if result == nil {
+			continue
+		}
+		if taskBytes, ok := result.(string); ok {
+			tasks = append(tasks, []byte(taskBytes))
+		}
+	}
+
+	return tasks, nil
+}
+
+// DeleteTask removes task metadata from Redis
+func (r *Results) DeleteTask(ctx context.Context, name string) error {
+	r.lo.Debug("deleting task metadata", "name", name)
+
+	pipe := r.conn.Pipeline()
+	// Remove the task metadata
+	if err := pipe.Del(ctx, taskPrefix+name).Err(); err != nil {
+		return err
+	}
+	// Remove task name from the set
+	if err := pipe.SRem(ctx, tasksSet, name).Err(); err != nil {
+		return err
+	}
+	if _, err := pipe.Exec(ctx); err != nil {
+		return err
+	}
+
+	return nil
 }

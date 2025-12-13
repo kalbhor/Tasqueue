@@ -129,6 +129,16 @@ func (b *Broker) GetPending(ctx context.Context, queue string) ([]string, error)
 	return nil, fmt.Errorf("nats broker does not support this method")
 }
 
+// GetPendingWithPagination is not supported for NATS broker
+func (b *Broker) GetPendingWithPagination(ctx context.Context, queue string, offset, limit int) ([]string, int64, error) {
+	return nil, 0, fmt.Errorf("nats broker does not support this method")
+}
+
+// GetPendingCount is not supported for NATS broker
+func (b *Broker) GetPendingCount(ctx context.Context, queue string) (int64, error) {
+	return 0, fmt.Errorf("nats broker does not support this method")
+}
+
 func (b *Broker) EnqueueScheduled(ctx context.Context, msg []byte, queue string, ts time.Time) error {
 	return fmt.Errorf("nats broker does not support this method")
 }

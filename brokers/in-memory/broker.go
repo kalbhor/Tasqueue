@@ -84,6 +84,66 @@ func (r *Broker) GetPending(ctx context.Context, queue string) ([]string, error)
 	return pending, nil
 }
 
+// GetPendingWithPagination returns a paginated list of pending jobs from the in-memory queue
+func (r *Broker) GetPendingWithPagination(ctx context.Context, queue string, offset, limit int) ([]string, int64, error) {
+	r.pmu.RLock()
+	pending, ok := r.pending[queue]
+	r.pmu.RUnlock()
+
+	if !ok {
+		// Queue doesn't exist yet, return empty result
+		return []string{}, 0, nil
+	}
+
+	total := int64(len(pending))
+	if total == 0 {
+		return []string{}, 0, nil
+	}
+
+	// Validate offset
+	if offset < 0 {
+		offset = 0
+	}
+	if int64(offset) >= total {
+		return []string{}, total, nil
+	}
+
+	// Validate limit
+	if limit <= 0 {
+		limit = 100 // Default limit
+	}
+	// Cap maximum limit to prevent abuse
+	if limit > 10000 {
+		limit = 10000
+	}
+
+	// Calculate end index
+	end := offset + limit
+	if int64(end) > total {
+		end = int(total)
+	}
+
+	// Return slice of pending jobs
+	result := make([]string, end-offset)
+	copy(result, pending[offset:end])
+
+	return result, total, nil
+}
+
+// GetPendingCount returns the count of pending jobs in the in-memory queue
+func (r *Broker) GetPendingCount(ctx context.Context, queue string) (int64, error) {
+	r.pmu.RLock()
+	pending, ok := r.pending[queue]
+	r.pmu.RUnlock()
+
+	if !ok {
+		// Queue doesn't exist yet, return 0 count
+		return 0, nil
+	}
+
+	return int64(len(pending)), nil
+}
+
 func (b *Broker) EnqueueScheduled(ctx context.Context, msg []byte, queue string, ts time.Time) error {
 	return fmt.Errorf("in-memory broker does not support this method")
 }

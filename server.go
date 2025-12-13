@@ -52,6 +52,14 @@ type Task struct {
 	opts TaskOpts
 }
 
+// TaskInfo represents the serializable metadata about a registered task.
+// This is stored in the results backend for external UI access.
+type TaskInfo struct {
+	Name        string `json:"name" msgpack:"name"`
+	Queue       string `json:"queue" msgpack:"queue"`
+	Concurrency uint32 `json:"concurrency" msgpack:"concurrency"`
+}
+
 type TaskOpts struct {
 	Concurrency  uint32
 	Queue        string
@@ -78,7 +86,9 @@ func (s *Server) RegisterTask(name string, fn handler, opts TaskOpts) error {
 	s.q.RUnlock()
 	if !ok {
 		s.registerQueue(opts.Queue, opts.Concurrency)
-		s.registerHandler(name, Task{name: name, handler: fn, opts: opts})
+		if err := s.registerHandler(name, Task{name: name, handler: fn, opts: opts}); err != nil {
+			return err
+		}
 
 		return nil
 
@@ -87,7 +97,9 @@ func (s *Server) RegisterTask(name string, fn handler, opts TaskOpts) error {
 	// If the queue is already defined and the passed concurrency optional
 	// is same (it can be default queue/conc) so simply register the handler
 	if opts.Concurrency == conc {
-		s.registerHandler(name, Task{name: name, handler: fn, opts: opts})
+		if err := s.registerHandler(name, Task{name: name, handler: fn, opts: opts}); err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -143,17 +155,25 @@ func NewServer(o ServerOpts) (*Server, error) {
 	}, nil
 }
 
-// GetTasks() returns a list of all tasks registered with the server.
-func (s *Server) GetTasks() []string {
-	s.p.RLock()
-	defer s.p.RUnlock()
-
-	t := make([]string, 0, len(s.tasks))
-	for name := range s.tasks {
-		t = append(t, name)
+// GetTasks() returns a list of all tasks registered with the server by pulling from the store.
+func (s *Server) GetTasks() ([]TaskInfo, error) {
+	ctx := context.Background()
+	tasksBytes, err := s.results.GetAllTasks(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching tasks from store: %w", err)
 	}
 
-	return t
+	tasks := make([]TaskInfo, 0, len(tasksBytes))
+	for _, taskBytes := range tasksBytes {
+		var taskInfo TaskInfo
+		if err := msgpack.Unmarshal(taskBytes, &taskInfo); err != nil {
+			s.log.Error("error unmarshalling task info", "error", err)
+			continue
+		}
+		tasks = append(tasks, taskInfo)
+	}
+
+	return tasks, nil
 }
 
 var ErrNotFound = errors.New("result not found")
@@ -174,6 +194,7 @@ func (s *Server) GetResult(ctx context.Context, id string) ([]byte, error) {
 }
 
 // GetPending() returns the pending job message's in the broker's queue.
+// Deprecated: Use GetPendingWithPagination for better performance with large queues
 func (s *Server) GetPending(ctx context.Context, queue string) ([]JobMessage, error) {
 	rs, err := s.broker.GetPending(ctx, queue)
 	if err != nil {
@@ -188,6 +209,31 @@ func (s *Server) GetPending(ctx context.Context, queue string) ([]JobMessage, er
 	}
 
 	return jobMsg, nil
+}
+
+// GetPendingWithPagination returns a paginated list of pending job messages in the broker's queue.
+// offset: the starting index (0-based)
+// limit: maximum number of items to return
+// Returns: job messages, total count, error
+func (s *Server) GetPendingWithPagination(ctx context.Context, queue string, offset, limit int) ([]JobMessage, int64, error) {
+	rs, total, err := s.broker.GetPendingWithPagination(ctx, queue, offset, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var jobMsg = make([]JobMessage, len(rs))
+	for i, r := range rs {
+		if err := msgpack.Unmarshal([]byte(r), &jobMsg[i]); err != nil {
+			return nil, 0, err
+		}
+	}
+
+	return jobMsg, total, nil
+}
+
+// GetPendingCount returns the count of pending jobs in the broker's queue without fetching the actual jobs.
+func (s *Server) GetPendingCount(ctx context.Context, queue string) (int64, error) {
+	return s.broker.GetPendingCount(ctx, queue)
 }
 
 // DeleteJob() removes the stored results of a particular job. It does not "dequeue"
@@ -450,10 +496,28 @@ func (s *Server) registerQueue(name string, conc uint32) {
 	s.q.Unlock()
 }
 
-func (s *Server) registerHandler(name string, t Task) {
+func (s *Server) registerHandler(name string, t Task) error {
+	// Store in-memory for fast access
 	s.p.Lock()
 	s.tasks[name] = t
 	s.p.Unlock()
+
+	// Persist task metadata to store for external UI access
+	taskInfo := TaskInfo{
+		Name:        name,
+		Queue:       t.opts.Queue,
+		Concurrency: t.opts.Concurrency,
+	}
+	taskBytes, err := msgpack.Marshal(taskInfo)
+	if err != nil {
+		return fmt.Errorf("error marshalling task info: %w", err)
+	}
+
+	if err := s.results.SetTask(context.Background(), name, taskBytes); err != nil {
+		return fmt.Errorf("error persisting task to store: %w", err)
+	}
+
+	return nil
 }
 
 func (s *Server) getHandler(name string) (Task, error) {

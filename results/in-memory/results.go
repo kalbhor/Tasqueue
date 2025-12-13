@@ -11,6 +11,7 @@ type Results struct {
 	store   map[string][]byte
 	failed  map[string]struct{}
 	success map[string]struct{}
+	tasks   map[string][]byte
 }
 
 func New() *Results {
@@ -18,6 +19,7 @@ func New() *Results {
 		store:   make(map[string][]byte),
 		failed:  make(map[string]struct{}),
 		success: make(map[string]struct{}),
+		tasks:   make(map[string][]byte),
 	}
 }
 
@@ -92,4 +94,47 @@ func (r *Results) GetFailed(_ context.Context) ([]string, error) {
 	r.mu.Unlock()
 
 	return fl, nil
+}
+
+// SetTask stores task metadata in memory
+func (r *Results) SetTask(_ context.Context, name string, task []byte) error {
+	r.mu.Lock()
+	r.tasks[name] = task
+	r.mu.Unlock()
+
+	return nil
+}
+
+// GetTask retrieves task metadata from memory
+func (r *Results) GetTask(_ context.Context, name string) ([]byte, error) {
+	r.mu.Lock()
+	task, ok := r.tasks[name]
+	r.mu.Unlock()
+
+	if !ok {
+		return nil, errNotFound
+	}
+
+	return task, nil
+}
+
+// GetAllTasks retrieves all task metadata from memory
+func (r *Results) GetAllTasks(_ context.Context) ([][]byte, error) {
+	r.mu.Lock()
+	tasks := make([][]byte, 0, len(r.tasks))
+	for _, task := range r.tasks {
+		tasks = append(tasks, task)
+	}
+	r.mu.Unlock()
+
+	return tasks, nil
+}
+
+// DeleteTask removes task metadata from memory
+func (r *Results) DeleteTask(_ context.Context, name string) error {
+	r.mu.Lock()
+	delete(r.tasks, name)
+	r.mu.Unlock()
+
+	return nil
 }
