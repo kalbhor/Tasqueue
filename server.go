@@ -417,6 +417,7 @@ func (s *Server) execJob(ctx context.Context, msg JobMessage, task Task) error {
 				for _, j := range msg.Job.OnError {
 					nj := *j
 					meta := DefaultMeta(nj.Opts)
+					meta.PrevErr = msg.PrevErr
 
 					if _, err = s.enqueueWithMeta(ctx, nj, meta); err != nil {
 						return fmt.Errorf("error enqueuing jobs after failure: %w", err)
@@ -440,7 +441,7 @@ func (s *Server) execJob(ctx context.Context, msg JobMessage, task Task) error {
 			nj := *j
 			meta := DefaultMeta(nj.Opts)
 			meta.PrevJobResult, err = s.GetResult(ctx, msg.ID)
-			if err != nil {
+			if err != nil && !errors.Is(err, ErrNotFound) {
 				return err
 			}
 
